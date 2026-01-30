@@ -1,384 +1,517 @@
 #!/usr/bin/env python3
 """
-Build script to automatically generate llms.txt from OpenResponses documentation
-This script fetches content from the live OpenResponses website and creates a 
-concise, sitemap-style llms.txt file similar to the Claude platform format.
+Build script to automatically generate llms.txt from OpenResponses documentation.
+Fetches content from all live website pages and creates a comprehensive,
+well-structured llms.txt file for LLM consumption.
 """
 
-import os
 import re
-import requests
+import urllib.request
+import urllib.error
 from pathlib import Path
-import json
-from typing import Dict, List, Optional
-from bs4 import BeautifulSoup
+from typing import Dict, List, Tuple, Optional
+
+
+# Page configuration with descriptions
+PAGES = {
+    "overview": {
+        "url": "https://www.openresponses.org/",
+        "title": "Overview",
+        "description": "Introduction and getting started guide",
+    },
+    "specification": {
+        "url": "https://www.openresponses.org/specification",
+        "title": "Specification",
+        "description": "Complete technical specification with core concepts",
+    },
+    "reference": {
+        "url": "https://www.openresponses.org/reference",
+        "title": "API Reference",
+        "description": "Detailed API documentation with endpoints and schemas",
+    },
+    "compliance": {
+        "url": "https://www.openresponses.org/compliance",
+        "title": "Compliance",
+        "description": "Acceptance tests and validation procedures",
+    },
+    "governance": {
+        "url": "https://www.openresponses.org/governance",
+        "title": "Governance",
+        "description": "Technical charter and project governance",
+    },
+    "changelog": {
+        "url": "https://www.openresponses.org/changelog",
+        "title": "Changelog",
+        "description": "Version history and specification updates",
+    },
+}
 
 
 def fetch_web_content(url: str) -> str:
-    """Fetch content from a URL"""
+    """Fetch content from a URL with error handling"""
     try:
-        response = requests.get(url)
-        response.raise_for_status()
-        return response.text
-    except requests.RequestException as e:
-        print(f"Error fetching {url}: {e}")
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=30) as response:
+            return response.read().decode("utf-8")
+    except urllib.error.URLError as e:
+        print(f"  [WARN] Error fetching {url}: {e}")
+        return ""
+    except Exception as e:
+        print(f"  [WARN] Unexpected error fetching {url}: {e}")
         return ""
 
 
-def extract_content_from_html(html_content: str) -> str:
-    """Extract text content from HTML"""
-    soup = BeautifulSoup(html_content, 'html.parser')
-    
-    # Remove script and style elements
-    for script in soup(["script", "style"]):
-        script.decompose()
-    
-    # Get text content
-    text = soup.get_text()
-    
-    # Clean up text
-    lines = (line.strip() for line in text.splitlines())
-    chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-    text = ' '.join(chunk for chunk in chunks if chunk)
-    
-    return text
+def extract_main_content(html: str) -> str:
+    """Extract main content area from HTML, removing nav/footer/scripts"""
+    # Remove script and style tags completely
+    html = re.sub(
+        r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE
+    )
+    html = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r"<svg[^>]*>.*?</svg>", "", html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r"<nav[^>]*>.*?</nav>", "", html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(
+        r"<footer[^>]*>.*?</footer>", "", html, flags=re.DOTALL | re.IGNORECASE
+    )
+    html = re.sub(
+        r"<header[^>]*>.*?</header>", "", html, flags=re.DOTALL | re.IGNORECASE
+    )
+
+    # Try to find main content area - common Astro/React patterns
+    main_patterns = [
+        r"<main[^>]*>(.*?)</main>",
+        r"<article[^>]*>(.*?)</article>",
+        r'<div[^>]*class="[^"]*(?:_content|_main|prose|markdown|docs)[^"]*"[^>]*>(.*?)</div>',
+        r'<div[^>]*id="[^"]*(?:content|main)[^"]*"[^>]*>(.*?)</div>',
+        r'<section[^>]*class="[^"]*(?:content|main)[^"]*"[^>]*>(.*?)</section>',
+    ]
+
+    for pattern in main_patterns:
+        match = re.search(pattern, html, re.DOTALL | re.IGNORECASE)
+        if match:
+            html = match.group(1)
+            break
+
+    return html
 
 
-def extract_mdx_like_content_from_html(html_content: str) -> str:
-    """Extract content that resembles MDX/markdown from HTML"""
-    soup = BeautifulSoup(html_content, 'html.parser')
-    
-    # Remove script and style elements
-    for script in soup(["script", "style"]):
-        script.decompose()
-    
-    # Try to extract main content areas
-    content_areas = soup.find_all(['main', 'article', 'div'], 
-                                  attrs={'class': lambda x: x and ('content' in x or 'main' in x or 'doc' in x or 'page' in x)})
-    
-    if not content_areas:
-        # If no specific content areas found, try to get the main content
-        content_areas = [soup.body] if soup.body else [soup]
-    
-    extracted_content = ""
-    for area in content_areas:
-        extracted_content += area.get_text(separator='\n') + "\n"
-    
-    # Clean up text
-    lines = (line.strip() for line in extracted_content.splitlines())
-    chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-    text = '\n'.join(chunk for chunk in chunks if chunk)
-    
-    return text
+def clean_html_to_text(html: str) -> str:
+    """Convert HTML to clean text"""
+    # Remove remaining HTML tags
+    text = re.sub(r"<[^>]+>", " ", html)
 
-
-def clean_markdown_content(content: str) -> str:
-    """Clean markdown content for llms.txt format"""
-    # Remove excessive blank lines
-    content = re.sub(r'\n\s*\n\s*\n', '\n\n', content)
-
-    # Clean up markdown artifacts while preserving structure
-    # Remove markdown links, keep text: [text](url) -> text
-    content = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', content)
-
-    # Remove image references
-    content = re.sub(r'!\[([^\]]*)\]\([^)]+\)', r'', content)
-
-    # Remove HTML tags that might remain
-    content = re.sub(r'<[^>]+>', '', content)
-
-    return content.strip()
-
-
-def extract_key_info_from_content(content: str) -> dict:
-    """Extract key information from the content"""
-    key_info = {
-        'core_concepts': [],
-        'endpoints': [],
-        'parameters': [],
-        'response_fields': [],
-        'streaming_events': []
+    # Decode HTML entities
+    entities = {
+        "&lt;": "<",
+        "&gt;": ">",
+        "&amp;": "&",
+        "&quot;": '"',
+        "&apos;": "'",
+        "&#39;": "'",
+        "&nbsp;": " ",
+        "&ndash;": "–",
+        "&mdash;": "—",
+        "&hellip;": "…",
     }
-    
-    # Extract core concepts by looking for key phrases
-    concepts_patterns = [
-        r'(\*\*Items\*\*[^\.]*?)(?=\n\*\*|\n##|\Z)',
-        r'(\*\*Agentic Loop\*\*[^\.]*?)(?=\n\*\*|\n##|\Z)',
-        r'(\*\*Semantic Streaming\*\*[^\.]*?)(?=\n\*\*|\n##|\Z)',
-        r'(\*\*State Machines\*\*[^\.]*?)(?=\n\*\*|\n##|\Z)',
-        r'(\*\*Multi-provider\*\*[^\.]*?)(?=\n\*\*|\n##|\Z)',
-        r'(\*\*Items → Items\*\*[^\.]*?)(?=\n\*\*|\n##|\Z)',
-        r'Items.*?atomic.*?unit',
-        r'Agentic.*?loop',
-        r'Semantic.*?streaming',
-        r'State.*?machines',
-        r'Multi.*?provider'
-    ]
-    
-    for pattern in concepts_patterns:
-        try:
-            matches = re.findall(pattern, content, re.IGNORECASE)
-            for match in matches:
-                if isinstance(match, tuple):
-                    match = match[0] if match else ''
-                if match.strip():
-                    # Clean up the match
-                    clean_match = re.sub(r'\s+', ' ', match.strip())
-                    if len(clean_match) > 10 and clean_match not in key_info['core_concepts']:  # Only add substantial matches
-                        key_info['core_concepts'].append(clean_match)
-        except re.error:
-            # Skip problematic patterns
-            continue
-    
-    # Extract endpoints
-    try:
-        endpoint_matches = re.findall(r'(POST|GET|PUT|DELETE)\s+(/[\w\/\-]+)', content)
-        for method, path in endpoint_matches:
-            endpoint = f"{method} {path}"
-            if endpoint not in key_info['endpoints']:
-                key_info['endpoints'].append(endpoint)
-    except re.error:
-        pass
+    for entity, char in entities.items():
+        text = text.replace(entity, char)
 
-    # Extract key parameters by looking for common parameter patterns
-    param_patterns = [
-        r'`(\w+)`\s+\([^)]*(?:string|number|boolean|integer)',
-        r'`(\w+)`\s+.*?(?:parameter|field|argument)',
-        r'`(\w+)`.*?(?:input|request|model|tool|stream|temperature|top_p|truncation|service_tier)',
-        r'(\w+)\s+\(string\)|(\w+)\s+\(number\)|(\w+)\s+\(boolean\)|(\w+)\s+\(integer\)'
-    ]
-    
-    for pattern in param_patterns:
-        try:
-            matches = re.findall(pattern, content, re.IGNORECASE)
-            for match_group in matches:
-                # Handle both single matches and groups
-                if isinstance(match_group, tuple):
-                    match = next((m for m in match_group if m), '')  # Get first non-empty match
-                else:
-                    match = match_group
-                    
-                if match and len(match) > 2 and match.lower() not in ['the', 'and', 'for', 'with', 'to', 'of', 'in', 'on', 'at', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'type', 'id', 'name', 'text', 'url', 'data', 'model', 'input', 'tools', 'tool', 'stream', 'temperature', 'top_p']:
-                    if match not in key_info['parameters']:
-                        key_info['parameters'].append(match)
-        except re.error:
-            # Skip problematic patterns
-            continue
+    # Clean up whitespace
+    text = re.sub(r"\n\s*\n", "\n\n", text)
+    text = re.sub(r"[ \t]+", " ", text)
 
-    # Extract response fields
-    field_patterns = [
-        r'`(\w+)`\s+.*?(?:response|output|status|model|usage|error)',
-        r'`(\w+)`\s+.*?(?:field|property|attribute)',
-        r'(\w+)\s+.*?(?:response|output|status|model|usage|error)'
+    # Remove excessive blank lines
+    lines = text.split("\n")
+    cleaned = []
+    prev_blank = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped:
+            cleaned.append(stripped)
+            prev_blank = False
+        elif not prev_blank:
+            cleaned.append("")
+            prev_blank = True
+
+    return "\n".join(cleaned).strip()
+
+
+def extract_first_paragraph(text: str, max_chars: int = 300) -> str:
+    """Extract the first meaningful paragraph from text, filtering out nav/header cruft"""
+    # Remove common navigation/header text that appears in Astro sites
+    nav_patterns = [
+        r"Overview\s+Specification\s+Reference\s+Acceptance\s+Tests\s+Governance\s+Changelog",
+        r"Skip\s+to\s+content",
+        r"Menu\s+Close",
+        r"^\s*Open\s+Responses\s*$",
+        r"^\s*Overview\s*$",
+        r"^\s*Specification\s*$",
+        r"^\s*Reference\s*$",
+        r"^\s*Acceptance\s+Tests\s*$",
+        r"^\s*Governance\s*$",
+        r"^\s*Changelog\s*$",
     ]
-    
-    for pattern in field_patterns:
-        try:
-            matches = re.findall(pattern, content, re.IGNORECASE)
-            for match in matches:
-                if match and len(match) > 2:
-                    if match not in key_info['response_fields']:
-                        key_info['response_fields'].append(match)
-        except re.error:
-            # Skip problematic patterns
+    for pattern in nav_patterns:
+        text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.MULTILINE)
+
+    # Remove duplicate "Open Responses Open Responses" patterns
+    text = re.sub(r"Open\s+Responses\s+Open\s+Responses", "Open Responses", text)
+
+    paragraphs = text.split("\n\n")
+    for para in paragraphs:
+        para = para.strip()
+        # Skip if too short or looks like a heading/code/navigation
+        if len(para) < 40:
             continue
-    
+        if para.startswith("#") or para.startswith("```"):
+            continue
+        # Skip if it looks like navigation or metadata
+        if re.match(
+            r"^(Overview|Specification|Reference|Acceptance|Tests|Governance|Changelog|Menu|Close|Skip|Open Responses)\s*$",
+            para,
+            re.IGNORECASE,
+        ):
+            continue
+        # Clean up excessive whitespace
+        para = re.sub(r"\s+", " ", para)
+        # Remove leading page titles (e.g., "Specification Open Responses is...")
+        para = re.sub(
+            r"^(Overview|Specification|Reference|Acceptance Tests|Governance|Changelog)\s+",
+            "",
+            para,
+            flags=re.IGNORECASE,
+        )
+        # Return first substantial paragraph, truncated
+        if len(para) > max_chars:
+            para = para[:max_chars].rsplit(" ", 1)[0] + "..."
+        return para
+    return ""
+
+
+def extract_section_content(
+    text: str, section_patterns: List[str], max_chars: int = 500
+) -> str:
+    """Extract content from specific sections by heading patterns"""
+    for pattern in section_patterns:
+        # Look for heading followed by content
+        match = re.search(
+            pattern + r"[:\s]*\n+(.+?)(?:\n#|\n\n#|$)",
+            text,
+            re.IGNORECASE | re.DOTALL,
+        )
+        if match:
+            content = match.group(1).strip()
+            # Clean up the content
+            content = re.sub(r"\n+", " ", content)
+            content = re.sub(r"\s+", " ", content)
+            if len(content) > max_chars:
+                content = content[:max_chars].rsplit(" ", 1)[0] + "..."
+            return content
+    return ""
+
+
+def extract_key_concepts(text: str) -> List[str]:
+    """Extract key concepts from specification text"""
+    concepts = []
+
+    # Define concept patterns with their descriptions
+    concept_patterns = [
+        (
+            r"Items?\s+(?:are|is)\s+(?:the\s+)?(?:fundamental|core|basic|atomic)\s+(?:unit|building)\s+of[^.\n]{10,150}",
+            "Items",
+        ),
+        (r"Agentic\s+[Ll]oop[^.\n]{0,20}(?:[^.\n]{0,200})", "Agentic Loop"),
+        (
+            r"Semantic\s+(?:streaming|events)[^.\n]{0,20}(?:[^.\n]{0,200})",
+            "Semantic Streaming",
+        ),
+        (r"State\s+[Mm]achines?[^.\n]{0,20}(?:[^.\n]{0,200})", "State Machines"),
+        (r"Multi[-\s]?provider[^.\n]{0,20}(?:[^.\n]{0,200})", "Multi-Provider"),
+    ]
+
+    seen = set()
+    for pattern, name in concept_patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        for match in matches[:2]:  # Limit matches per pattern
+            # Clean up the match
+            clean = re.sub(r"\s+", " ", match.strip())
+            if len(clean) > 30 and clean.lower() not in seen:
+                # Capitalize first letter
+                clean = clean[0].upper() + clean[1:] if clean else clean
+                concepts.append(clean)
+                seen.add(clean.lower())
+                break
+
+    # Fallback concepts if extraction failed
+    if len(concepts) < 3:
+        fallback = [
+            "Items are the fundamental unit of context in Open Responses, representing atomic units of model output, tool invocation, or reasoning state",
+            "Agentic Loop enables models to perceive input, reason, act through tools, and reflect on outcomes in a unified workflow",
+            "Semantic Streaming models streaming as a series of meaningful events rather than raw text deltas",
+            "State Machines define valid states and transitions for objects in the API such as in_progress, completed, or failed",
+            "Multi-Provider support allows one schema to map cleanly to many model providers while maintaining semantic consistency",
+        ]
+        existing = {c.lower() for c in concepts}
+        for concept in fallback:
+            if concept.lower() not in existing:
+                concepts.append(concept)
+                if len(concepts) >= 5:
+                    break
+
+    return concepts[:5]
+
+
+def extract_api_info(text: str) -> Tuple[List[str], List[str], List[str]]:
+    """Extract endpoints, parameters, and streaming events from text"""
+    endpoints = []
+    parameters = []
+    events = []
+
+    # Extract HTTP endpoints
+    endpoint_pattern = r"(POST|GET|PUT|DELETE|PATCH)\s+(/[\w\-/.:]+)"
+    seen_endpoints = set()
+    for method, path in re.findall(endpoint_pattern, text):
+        endpoint = f"{method} {path}"
+        if endpoint.lower() not in seen_endpoints:
+            endpoints.append(endpoint)
+            seen_endpoints.add(endpoint.lower())
+
+    # Extract parameter-like patterns (backtick followed by type)
+    param_pattern = r"`(\w+)`\s*[:\(]\s*(string|number|integer|boolean|array|object)"
+    seen_params = set()
+    for name, ptype in re.findall(param_pattern, text, re.IGNORECASE):
+        if name.lower() not in seen_params and len(name) > 2:
+            parameters.append(f"{name} ({ptype})")
+            seen_params.add(name.lower())
+
+    # Also look for common API parameter names
+    common_params = [
+        "model",
+        "input",
+        "tools",
+        "tool_choice",
+        "stream",
+        "temperature",
+        "top_p",
+        "max_tokens",
+        "truncation",
+        "service_tier",
+        "reasoning",
+    ]
+    for param in common_params:
+        if param.lower() not in seen_params and re.search(
+            rf"\b{param}\b", text, re.IGNORECASE
+        ):
+            parameters.append(param)
+            seen_params.add(param.lower())
+
     # Extract streaming events
-    try:
-        event_pattern = r'`(response\.[\w_]+)`'
-        event_matches = re.findall(event_pattern, content)
-        for event in event_matches:
-            if event not in key_info['streaming_events']:
-                key_info['streaming_events'].append(event)
-    except re.error:
-        pass
+    event_pattern = r"`?(response\.[\w_\.]+)`?"
+    seen_events = set()
+    for event in re.findall(event_pattern, text):
+        if event.lower() not in seen_events:
+            events.append(event)
+            seen_events.add(event.lower())
 
-    # Deduplicate lists and limit to reasonable sizes
-    key_info['core_concepts'] = key_info['core_concepts'][:5]  # Limit to 5 concepts
-    key_info['endpoints'] = key_info['endpoints'][:10]  # Limit to 10 endpoints
-    key_info['parameters'] = key_info['parameters'][:20]  # Limit to 20 parameters
-    key_info['response_fields'] = key_info['response_fields'][:20]  # Limit to 20 fields
-    key_info['streaming_events'] = key_info['streaming_events'][:15]  # Limit to 15 events
-    
-    return key_info
+    return endpoints[:8], parameters[:15], events[:12]
 
 
-def validate_llms_txt(file_path: str) -> tuple:
-    """Validate the generated llms.txt file against the llmstxt.org specification"""
-    with open(file_path, 'r', encoding='utf-8') as f:
+def validate_llms_txt(file_path: str) -> Tuple[bool, Dict]:
+    """Validate llms.txt against llmstxt.org specification"""
+    with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    lines = content.split('\n')
+    lines = content.split("\n")
 
-    # Check for required elements per llmstxt.org specification
-    h1_found = any(line.startswith('# ') for line in lines)
-    blockquote_found = any(line.startswith('> ') for line in lines)
-    h2_count = sum(1 for line in lines if line.startswith('## '))
-    links_found = any('[' in line and ']' in line and '(' in line and ')' in line for line in lines)
-
-    # Validation results
-    validation_results = {
-        'h1_found': h1_found,
-        'blockquote_found': blockquote_found,
-        'h2_count': h2_count,
-        'links_found': links_found,
-        'valid': h1_found and blockquote_found and h2_count >= 1
+    results = {
+        "h1_found": any(line.startswith("# ") for line in lines),
+        "blockquote_found": any(line.startswith("> ") for line in lines),
+        "h2_count": sum(1 for line in lines if line.startswith("## ")),
+        "links_found": any(re.search(r"\[.+\]\(.+\)", line) for line in lines),
+        "file_size": len(content),
+        "line_count": len(lines),
     }
 
-    # Print validation results
-    print("llmstxt.org Specification Validation:")
-    print(f"- H1 heading found: {h1_found}")
-    print(f"- Blockquote summary found: {blockquote_found}")
-    print(f"- H2 sections found: {h2_count} (minimum 1 required)")
-    print(f"- Links found: {links_found}")
-    print(f"- Overall validity: {validation_results['valid']}")
+    results["valid"] = (
+        results["h1_found"] and results["blockquote_found"] and results["h2_count"] >= 1
+    )
 
-    if not validation_results['valid']:
-        print("\nValidation errors:")
-        if not h1_found:
-            print("  - Missing H1 heading (should start with '# ')")
-        if not blockquote_found:
-            print("  - Missing blockquote summary (should start with '> ')")
-        if h2_count < 1:
-            print("  - Need at least 1 H2 section (should start with '## ')")
-
-    return validation_results['valid'], validation_results
+    return results["valid"], results
 
 
-def generate_llms_txt_from_docs(docs_dir: str, output_path: str):
-    """Generate llms.txt from documentation files in Claude-like format"""
-    
-    # URLs to fetch content from
-    urls = {
-        'overview': 'https://www.openresponses.org/',
-        'specification': 'https://www.openresponses.org/specification',
-        'reference': 'https://www.openresponses.org/reference',
-        'compliance': 'https://www.openresponses.org/compliance',
-        'governance': 'https://www.openresponses.org/governance',
-        'changelog': 'https://www.openresponses.org/changelog'
-    }
-    
-    # Initialize content
-    llms_content = []
+def generate_llms_txt(output_path: str) -> bool:
+    """Generate comprehensive llms.txt from all website pages"""
 
-    # Add main title
-    llms_content.append("# Open Responses")
-    llms_content.append("")
-    llms_content.append("> Open Responses is an open, vendor-neutral specification for large language model APIs that defines a shared schema, consistent streaming/events, and extensible tooling to enable interoperable LLM workflows across different providers. It standardizes LLM interfaces while maintaining flexibility for provider-specific extensions and advanced agentic capabilities.")
-    llms_content.append("")
+    print("Fetching documentation from live website...\n")
 
-    # Fetch content from specification page to extract key information
-    spec_content = ""
-    spec_html = fetch_web_content(urls['specification'])
-    if spec_html:
-        spec_content = extract_mdx_like_content_from_html(spec_html)
-        spec_content = clean_markdown_content(spec_content)
-        key_info = extract_key_info_from_content(spec_content)
-        
-        # Add Core Concepts section
-        if key_info['core_concepts']:
-            llms_content.append("## Core Concepts")
-            llms_content.append("")
-            for concept in key_info['core_concepts']:
-                llms_content.append(f"- {concept}")
-            llms_content.append("")
-        
-        # Add API section if we have endpoints or parameters
-        if key_info['endpoints'] or key_info['parameters']:
-            llms_content.append("## API")
-            llms_content.append("")
-            if key_info['endpoints']:
-                llms_content.append("### Endpoints")
-                for endpoint in key_info['endpoints']:
-                    llms_content.append(f"- `{endpoint}`")
-                llms_content.append("")
-            
-            if key_info['parameters']:
-                llms_content.append("### Key Parameters")
-                for param in key_info['parameters']:
-                    llms_content.append(f"- `{param}`")
-                llms_content.append("")
-        
-        # Add Streaming Events section
-        if key_info['streaming_events']:
-            llms_content.append("## Streaming Events")
-            llms_content.append("")
-            for event in key_info['streaming_events']:
-                llms_content.append(f"- `{event}`")
-            llms_content.append("")
+    # Fetch all pages
+    page_contents = {}
+    for key, info in PAGES.items():
+        print(f"  Fetching {info['title']}...")
+        html = fetch_web_content(info["url"])
+        if html:
+            main_html = extract_main_content(html)
+            text = clean_html_to_text(main_html)
+            page_contents[key] = {
+                "text": text,
+                "info": info,
+            }
+            print(f"    [OK] Extracted {len(text)} characters")
+        else:
+            print(f"    [FAIL] Failed to fetch")
+            page_contents[key] = None
 
-    # Add Resources section (similar to Claude format)
-    llms_content.append("## Resources")
-    llms_content.append("")
-    llms_content.append("- [API Reference](https://www.openresponses.org/reference): Detailed API documentation with all endpoints, parameters, and response structures")
-    llms_content.append("- [Specification](https://www.openresponses.org/specification): Complete technical specification with detailed concepts and implementation guidelines")
-    llms_content.append("- [Compliance](https://www.openresponses.org/compliance): Acceptance tests and validation procedures")
-    llms_content.append("- [Governance](https://www.openresponses.org/governance): Technical charter and governance structure")
-    llms_content.append("- [Changelog](https://www.openresponses.org/changelog): Version history and updates")
-    llms_content.append("")
+    print("\nGenerating llms.txt content...")
 
-    # Add Documentation section
-    llms_content.append("## Documentation")
-    llms_content.append("")
-    llms_content.append("- [Overview](https://www.openresponses.org/): Introduction to Open Responses")
-    llms_content.append("- [Specification](https://www.openresponses.org/specification): Complete technical specification")
-    llms_content.append("- [API Reference](https://www.openresponses.org/reference): Detailed API documentation")
-    llms_content.append("- [Compliance](https://www.openresponses.org/compliance): Acceptance tests and validation")
-    llms_content.append("- [Governance](https://www.openresponses.org/governance): Technical charter and governance structure")
-    llms_content.append("- [Changelog](https://www.openresponses.org/changelog): Version history and updates")
-    llms_content.append("")
+    # Build llms.txt content
+    content = []
 
-    # Add Examples section
-    llms_content.append("## Examples")
-    llms_content.append("")
-    llms_content.append("- [cURL Snippets](https://www.openresponses.org/curl_snippets/curl_snippets.yaml): YAML file with cURL examples for various API calls")
-    llms_content.append("- [OpenAPI Specification](https://www.openresponses.org/openapi/openapi.json): Complete OpenAPI specification in JSON format")
-    llms_content.append("")
+    # Header
+    content.append("# Open Responses")
+    content.append("")
+    content.append(
+        "> Open Responses is an open, vendor-neutral specification for large language model APIs that defines a shared schema, consistent streaming/events, and extensible tooling to enable interoperable LLM workflows across different providers."
+    )
+    content.append("")
 
-    # Write to output file
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write('\n'.join(llms_content))
+    # Core Concepts (from specification)
+    spec_data = page_contents.get("specification")
+    if spec_data and spec_data["text"]:
+        concepts = extract_key_concepts(spec_data["text"])
+        if concepts:
+            content.append("## Core Concepts")
+            content.append("")
+            for concept in concepts:
+                content.append(f"- {concept}")
+            content.append("")
 
-    print(f"Generated llms.txt with {len(llms_content)} lines")
+    # API Summary (from reference page)
+    ref_data = page_contents.get("reference")
+    if ref_data and ref_data["text"]:
+        endpoints, params, events = extract_api_info(ref_data["text"])
 
-    # Validate the generated file
-    is_valid, validation_results = validate_llms_txt(output_path)
+        if endpoints or params or events:
+            content.append("## API Summary")
+            content.append("")
 
-    if is_valid:
-        print(f"\nllms.txt file successfully validated against llmstxt.org specification!")
-        print(f"File location: {output_path}")
-        print(f"Structure: 1 H1 + blockquote + {validation_results['h2_count']} H2 sections + links")
-    else:
-        print(f"\nllms.txt file failed validation against llmstxt.org specification!")
-        raise ValueError("Generated llms.txt file does not meet llmstxt.org specification requirements")
+            if endpoints:
+                content.append("### Endpoints")
+                for ep in endpoints:
+                    content.append(f"- `{ep}`")
+                content.append("")
+
+            if params:
+                content.append("### Common Parameters")
+                for param in params[:10]:
+                    content.append(f"- `{param}`")
+                content.append("")
+
+            if events:
+                content.append("### Streaming Events")
+                for event in events[:8]:
+                    content.append(f"- `{event}`")
+                content.append("")
+
+    # Documentation Pages with excerpts
+    content.append("## Documentation")
+    content.append("")
+
+    for key in [
+        "overview",
+        "specification",
+        "reference",
+        "compliance",
+        "governance",
+        "changelog",
+    ]:
+        data = page_contents.get(key)
+        if data and data["text"]:
+            info = data["info"]
+            excerpt = extract_first_paragraph(data["text"], max_chars=250)
+
+            if excerpt:
+                content.append(
+                    f"- [{info['title']}]({info['url']}): {info['description']}. {excerpt}"
+                )
+            else:
+                content.append(
+                    f"- [{info['title']}]({info['url']}): {info['description']}"
+                )
+
+    content.append("")
+
+    # Additional Resources
+    content.append("## Additional Resources")
+    content.append("")
+    content.append(
+        "- [cURL Snippets](https://www.openresponses.org/curl_snippets/curl_snippets.yaml): Practical examples for API calls"
+    )
+    content.append(
+        "- [OpenAPI Spec](https://www.openresponses.org/openapi/openapi.json): Complete OpenAPI specification"
+    )
+    content.append("")
+
+    # Write file
+    output_text = "\n".join(content)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(output_text)
+
+    print(f"\n[OK] Generated llms.txt ({len(output_text)} bytes, {len(content)} lines)")
+
+    # Validate
+    is_valid, results = validate_llms_txt(output_path)
+
+    print("\n[RESULT] Validation Results:")
+    print(f"  - H1 heading: {'[OK]' if results['h1_found'] else '[FAIL]'}")
+    print(f"  - Blockquote: {'[OK]' if results['blockquote_found'] else '[FAIL]'}")
+    print(
+        f"  - H2 sections: {results['h2_count']} {'[OK]' if results['h2_count'] >= 1 else '[FAIL]'}"
+    )
+    print(f"  - Links found: {'[OK]' if results['links_found'] else '[FAIL]'}")
+    print(f"  - Overall: {'[OK] VALID' if is_valid else '[FAIL] INVALID'}")
+
+    if not is_valid:
+        raise ValueError("Generated llms.txt does not meet llmstxt.org specification")
 
     return is_valid
 
 
 def main():
-    """Main function to run the generator"""
-    # Define paths relative to the project root
-    # When script is in bin/, need to go up one level to reach project root
+    """Main entry point"""
     project_root = Path(__file__).parent.parent
-    docs_dir = project_root / "src" / "pages"
     output_path = project_root / "public" / "llms.txt"
 
     # Ensure public directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    print("Generating llms.txt from live website documentation...")
+    print("=" * 60)
+    print("[GEN] OpenResponses llms.txt Generator")
+    print("=" * 60)
+    print()
+
     try:
-        success = generate_llms_txt_from_docs(str(docs_dir), str(output_path))
+        success = generate_llms_txt(str(output_path))
         if success:
-            print(f"\nllms.txt generation completed successfully!")
-            print(f"Generated file location: {output_path}")
-            print(f"File size: {output_path.stat().st_size} bytes")
+            print(f"\n[SUCCESS] Success! File written to: {output_path}")
         else:
-            print("\nllms.txt generation failed validation!")
+            print("\n[WARN]  Warning: Validation failed")
+            return 1
     except Exception as e:
-        print(f"\nError during llms.txt generation: {str(e)}")
-        raise
+        print(f"\n[FAIL] Error: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return 1
+
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    exit(main())

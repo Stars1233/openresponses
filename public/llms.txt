@@ -1,25 +1,42 @@
 # Open Responses
 
-> Open Responses is an open, vendor-neutral specification for large language model APIs that defines a shared schema, consistent streaming/events, and extensible tooling to enable interoperable LLM workflows across different providers. It standardizes LLM interfaces while maintaining flexibility for provider-specific extensions and advanced agentic capabilities.
+> Open Responses is an open, vendor-neutral specification for large language model APIs that defines a shared schema, consistent streaming/events, and extensible tooling to enable interoperable LLM workflows across different providers.
 
-## Resources
+## Core Concepts
 
-- [API Reference](https://www.openresponses.org/reference): Detailed API documentation with all endpoints, parameters, and response structures
-- [Specification](https://www.openresponses.org/specification): Complete technical specification with detailed concepts and implementation guidelines
-- [Compliance](https://www.openresponses.org/compliance): Acceptance tests and validation procedures
-- [Governance](https://www.openresponses.org/governance): Technical charter and governance structure
-- [Changelog](https://www.openresponses.org/changelog): Version history and updates
+- Items are the fundamental unit of context in Open Responses: they represent an atomic unit of model output, tool invocation, or reasoning state
+- Agentic loops: Unified streaming, tool invocation, and message orchestration
+- Semantic events, not raw text or object deltas
+- State machines, that is, they can live in one of a finite number of states, such as in_progress , completed , or failed
+- Multi-provider, interoperable LLM interfaces based on the OpenAI Responses API
+
+## API Summary
+
+### Endpoints
+- `POST /v1/responses`
+
+### Common Parameters
+- `model`
+- `input`
+- `tools`
+- `tool_choice`
+- `stream`
+- `temperature`
+- `top_p`
+- `truncation`
+- `service_tier`
+- `reasoning`
 
 ## Documentation
 
-- [Overview](https://www.openresponses.org/): Introduction to Open Responses
-- [Specification](https://www.openresponses.org/specification): Complete technical specification
-- [API Reference](https://www.openresponses.org/reference): Detailed API documentation
-- [Compliance](https://www.openresponses.org/compliance): Acceptance tests and validation
-- [Governance](https://www.openresponses.org/governance): Technical charter and governance structure
-- [Changelog](https://www.openresponses.org/changelog): Version history and updates
+- [Overview](https://www.openresponses.org/): Introduction and getting started guide. Open Responses is an open-source specification and ecosystem for building multi-provider, interoperable LLM interfaces based on the OpenAI Responses API. It defines a shared schema, and tooling layer that enable a unified experience for calling...
+- [Specification](https://www.openresponses.org/specification): Complete technical specification with core concepts. Open Responses is an open-source specification and ecosystem for building multi-provider, interoperable LLM interfaces based on the OpenAI Responses API. It defines a shared schema , client library , and tooling layer that enable a unified...
+- [API Reference](https://www.openresponses.org/reference): Detailed API documentation with endpoints and schemas. Full OpenAPI Schema POST /v1/responses Request Parameters The Responses API allows you to generate text, execute tools, and handle multi-turn conversations. It supports both synchronous requests and streaming for real-time output. Parameters may be...
+- [Compliance](https://www.openresponses.org/compliance): Acceptance tests and validation procedures. Test any API endpoint for Open Responses specification compliance. Configure your connection details and run the test suite to validate responses against the OpenAPI schema. Configuration Base URL Model API Key Auth Header Name Use Bearer prefix...
+- [Governance](https://www.openresponses.org/governance): Technical charter and project governance. Technical Charter This Charter sets forth the responsibilities and procedures for technical contribution to, and oversight of, Open Responses (the “Project”), an open, vendor-neutral specification for large language model APIs. Open Responses is...
+- [Changelog](https://www.openresponses.org/changelog): Version history and specification updates. Launched Open Responses as an open, multi-provider specification with a shared schema, consistent streaming/events, and extensible tooling to enable interoperable LLM workflows across providers.
 
-## Examples
+## Additional Resources
 
-- [cURL Snippets](https://www.openresponses.org/curl_snippets/curl_snippets.yaml): YAML file with cURL examples for various API calls
-- [OpenAPI Specification](https://www.openresponses.org/openapi/openapi.json): Complete OpenAPI specification in JSON format
+- [cURL Snippets](https://www.openresponses.org/curl_snippets/curl_snippets.yaml): Practical examples for API calls
+- [OpenAPI Spec](https://www.openresponses.org/openapi/openapi.json): Complete OpenAPI specification
