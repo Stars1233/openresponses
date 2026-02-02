@@ -2602,7 +2602,9 @@
             },
             "total_tokens": 380
           },
-          "metadata": {}
+          "metadata": {},
+          "service_tier": "default",
+          "top_logprobs": 0
         }
       },
       "ResponseCreatedStreamingEvent": {
