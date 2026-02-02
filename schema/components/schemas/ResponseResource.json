@@ -411,7 +411,9 @@
       },
       "total_tokens": 380
     },
-    "metadata": {}
+    "metadata": {},
+    "service_tier": "default",
+    "top_logprobs": 0
   },
   "x-openai-class-name": "responsesapi.api.resources.response_resource.ResponseBody"
 }
