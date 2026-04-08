@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { compactResourceSchema } from "../generated/kubb/zod/compactResourceSchema";
 import type { createResponseBodySchema } from "../generated/kubb/zod/createResponseBodySchema";
 import { responseResourceSchema } from "../generated/kubb/zod/responseResourceSchema";
 import { webSocketResponseCreateEventSchema } from "../generated/kubb/zod/webSocketResponseCreateEventSchema";
@@ -10,8 +11,11 @@ import {
 } from "./sse-parser";
 
 type ResponseResource = z.infer<typeof responseResourceSchema>;
+type CompactResource = z.infer<typeof compactResourceSchema>;
 type CreateResponseBody = z.infer<typeof createResponseBodySchema>;
-type TestRequestBody = CreateResponseBody & Record<string, unknown>;
+type ParsedResponse = ResponseResource | CompactResource;
+type ResponseSchema = z.ZodTypeAny;
+type TestRequestBody = Partial<CreateResponseBody> & Record<string, unknown>;
 type TestTransport = "http" | "websocket";
 type TestStatus = "pending" | "running" | "passed" | "failed" | "skipped";
 type WebSocketTurnResult = SSEParseResult & {
@@ -55,7 +59,7 @@ interface ValidatorContext {
 }
 
 type ResponseValidator = (
-  response: ResponseResource,
+  response: ParsedResponse,
   context: ValidatorContext,
 ) => string[];
 
@@ -64,9 +68,12 @@ export interface TestTemplate {
   name: string;
   description: string;
   transport?: TestTransport;
+  endpoint?: string;
+  expectedStatuses?: number[];
+  responseSchema?: ResponseSchema | null;
   getRequest: (config: TestConfig) => TestRequestBody;
   streaming?: boolean;
-  validators: ResponseValidator[];
+  validators?: ResponseValidator[];
   unsupportedReason?: (config: TestConfig) => string | null;
   run?: (config: TestConfig, template: TestTemplate) => Promise<TestResult>;
 }
@@ -89,8 +96,20 @@ const hasOutputType =
   };
 
 const completedStatus: ResponseValidator = (response) => {
+  if (!("status" in response)) {
+    return ['Expected a standard response object with a "status" field'];
+  }
   if (response.status !== "completed") {
     return [`Expected status "completed" but got "${response.status}"`];
+  }
+  return [];
+};
+
+const compactObject: ResponseValidator = (response) => {
+  if (response.object !== "response.compaction") {
+    return [
+      `Expected object "response.compaction" but got "${response.object}"`,
+    ];
   }
   return [];
 };
@@ -178,7 +197,7 @@ function createResponseResult(
     };
   }
 
-  const errors = template.validators.flatMap((v) =>
+  const errors = (template.validators ?? []).flatMap((v) =>
     v(parseResult.data, context),
   );
 
@@ -215,6 +234,36 @@ export const testTemplates: TestTemplate[] = [
           type: "message",
           role: "user",
           content: "Say hello in exactly 3 words.",
+        },
+      ],
+    }),
+    validators: [hasOutput, completedStatus],
+  },
+
+  {
+    id: "assistant-phase",
+    name: "Assistant Message Phase",
+    description:
+      "Sends assistant history with phase labels and validates contract acceptance",
+    getRequest: (config) => ({
+      model: config.model,
+      input: [
+        {
+          type: "message",
+          role: "assistant",
+          phase: "commentary",
+          content: "I should answer with the saved number.",
+        },
+        {
+          type: "message",
+          role: "assistant",
+          phase: "final_answer",
+          content: "The number is four.",
+        },
+        {
+          type: "message",
+          role: "user",
+          content: "Repeat only the number.",
         },
       ],
     }),
@@ -456,10 +505,56 @@ export const testTemplates: TestTemplate[] = [
     }),
     validators: [hasOutput, completedStatus],
   },
+
+  {
+    id: "compact-response",
+    name: "Compaction Endpoint",
+    description:
+      "Compacts a short conversation and validates the compacted response schema",
+    endpoint: "/responses/compact",
+    responseSchema: compactResourceSchema,
+    getRequest: (config) => ({
+      model: config.model,
+      input: [
+        {
+          type: "message",
+          role: "user",
+          content: "We agreed to launch on Tuesday and notify support first.",
+        },
+        {
+          type: "message",
+          role: "assistant",
+          content:
+            "Understood. The launch is Tuesday, with support notified beforehand.",
+        },
+      ],
+    }),
+    validators: [hasOutput, compactObject, hasOutputType("compaction")],
+  },
+
+  {
+    id: "compact-missing-model",
+    name: "Compaction Missing Required Model",
+    description:
+      "Rejects a compact request that omits the required model field",
+    endpoint: "/responses/compact",
+    expectedStatuses: [400, 422],
+    responseSchema: null,
+    getRequest: () => ({
+      input: [
+        {
+          type: "message",
+          role: "user",
+          content: "Compact this conversation.",
+        },
+      ],
+    }),
+  },
 ];
 
 async function makeRequest(
   config: TestConfig,
+  endpoint: string,
   body: TestRequestBody,
   streaming = false,
 ): Promise<Response> {
@@ -467,13 +562,17 @@ async function makeRequest(
     ? `Bearer ${config.apiKey}`
     : config.apiKey;
 
-  return fetch(`${config.baseUrl}/responses`, {
+  return fetch(`${config.baseUrl.replace(/\/$/, "")}${endpoint}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       [config.authHeaderName]: authValue,
     },
-    body: JSON.stringify({ ...body, stream: streaming }),
+    body: JSON.stringify(
+      streaming && body && typeof body === "object" && !Array.isArray(body)
+        ? { ...body, stream: true }
+        : body,
+    ),
   });
 }
 
@@ -735,15 +834,21 @@ async function makeCompactRequest(
   });
 }
 
-async function readResponseBody(response: Response): Promise<unknown> {
-  const text = await response.text();
-  if (!text) return "";
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
+async function readResponseBody(
+  response: Response,
+  streaming = false,
+): Promise<{ rawData: unknown; sseResult?: SSEParseResult }> {
+  if (streaming) {
+    const sseResult = await parseSSEStream(response);
+    return { rawData: sseResult.finalResponse, sseResult };
   }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    return { rawData: await response.json() };
+  }
+
+  return { rawData: await response.text() };
 }
 
 function getCompactedOutput(response: unknown): {
@@ -1211,7 +1316,7 @@ async function runWebSocketCompactNewChainTest(
 
   try {
     const compactResponse = await makeCompactRequest(config, compactRequest);
-    const compactBody = await readResponseBody(compactResponse);
+    const { rawData: compactBody } = await readResponseBody(compactResponse);
     if (!compactResponse.ok) {
       return {
         id: template.id,
@@ -1314,6 +1419,12 @@ async function runTest(
   const startTime = Date.now();
   const streaming = template.streaming ?? false;
   const transport = template.transport ?? "http";
+  const endpoint = template.endpoint ?? "/responses";
+  const expectedStatuses = template.expectedStatuses ?? [200];
+  const responseSchema =
+    template.responseSchema === undefined
+      ? responseResourceSchema
+      : template.responseSchema;
 
   const unsupportedReason = template.unsupportedReason?.(config);
   if (unsupportedReason) {
@@ -1364,7 +1475,7 @@ async function runTest(
         sseResult,
         transport,
       };
-      const errors = template.validators.flatMap((v) =>
+      const errors = (template.validators ?? []).flatMap((v) =>
         v(parseResult.data, context),
       );
 
@@ -1381,11 +1492,11 @@ async function runTest(
       };
     }
 
-    const response = await makeRequest(config, requestBody, streaming);
+    const response = await makeRequest(config, endpoint, requestBody, streaming);
     const duration = Date.now() - startTime;
+    const { rawData, sseResult } = await readResponseBody(response, streaming);
 
-    if (!response.ok) {
-      const errorText = await response.text();
+    if (!expectedStatuses.includes(response.status)) {
       return {
         id: template.id,
         name: template.name,
@@ -1393,23 +1504,26 @@ async function runTest(
         status: "failed",
         duration,
         request: requestBody,
-        response: errorText,
-        errors: [`HTTP ${response.status}: ${errorText}`],
+        response: rawData,
+        errors: [`HTTP ${response.status}: ${String(rawData)}`],
+        streamEvents: sseResult?.events.length,
       };
     }
 
-    let rawData: unknown;
-    let sseResult: SSEParseResult | undefined;
-
-    if (streaming) {
-      sseResult = await parseSSEStream(response);
-      rawData = sseResult.finalResponse;
-    } else {
-      rawData = await response.json();
+    if (!responseSchema) {
+      return {
+        id: template.id,
+        name: template.name,
+        description: template.description,
+        status: "passed",
+        duration,
+        request: streaming ? { ...requestBody, stream: true } : requestBody,
+        response: rawData,
+        streamEvents: sseResult?.events.length,
+      };
     }
 
-    // Parse with Zod first - schema validation
-    const parseResult = responseResourceSchema.safeParse(rawData);
+    const parseResult = responseSchema.safeParse(rawData);
     if (!parseResult.success) {
       return {
         id: template.id,
@@ -1426,10 +1540,9 @@ async function runTest(
       };
     }
 
-    // Run semantic validators on typed data
     const context: ValidatorContext = { streaming, sseResult, transport };
-    const errors = template.validators.flatMap((v) =>
-      v(parseResult.data, context),
+    const errors = (template.validators ?? []).flatMap((v) =>
+      v(parseResult.data as ParsedResponse, context),
     );
 
     return {
