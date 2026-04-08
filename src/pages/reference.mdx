@@ -62,6 +62,38 @@ Open a WebSocket connection to `/v1/responses` and start each turn with a JSON `
 
 <Reference schemaName="WebSocketErrorEvent" header="Error Message" includeSections={false} />
 
+## Compaction Endpoint
+
+<div class="mt-8 not-prose flex flex-row items-center gap-2 rounded-lg border-1 border-slate-300 bg-slate-100 p-2">
+  <span class="rounded border-1 border-blue-400 bg-blue-100 px-2 py-1 text-xs font-bold text-blue-600">
+    POST
+  </span>
+  <span class="font-mono">/v1/responses/compact</span>
+</div>
+
+The compaction endpoint returns a compacted conversation state object that can be used to preserve long-running context without asserting provider-specific compression behavior.
+
+### Body
+
+<Reference
+  schemaName="CompactResponseMethodPublicBody"
+  header="Body Parameters"
+  includeSections={false}
+/>
+
+### Response
+
+<Reference schemaName="CompactResource" header="Response" includeSections={false} />
+
 # API Objects
 
-<ReferenceSections schemaNames={["CreateResponseBody", "ResponseResource", "WebSocketResponseCreateEvent", "WebSocketErrorEvent"]} />
+<ReferenceSections
+  schemaNames={[
+    "CreateResponseBody",
+    "ResponseResource",
+    "WebSocketResponseCreateEvent",
+    "WebSocketErrorEvent",
+    "CompactResponseMethodPublicBody",
+    "CompactResource",
+  ]}
+/>
