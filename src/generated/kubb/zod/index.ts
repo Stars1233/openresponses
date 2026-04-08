@@ -2,6 +2,15 @@ export { allowedToolChoiceSchema } from "./allowedToolChoiceSchema.ts";
 export { allowedToolsParamSchema } from "./allowedToolsParamSchema.ts";
 export { annotationSchema } from "./annotationSchema.ts";
 export { assistantMessageItemParamSchema } from "./assistantMessageItemParamSchema.ts";
+export { compactionBodySchema } from "./compactionBodySchema.ts";
+export { compactionSummaryItemParamSchema } from "./compactionSummaryItemParamSchema.ts";
+export { compactResourceSchema } from "./compactResourceSchema.ts";
+export { compactResponseMethodPublicBodySchema } from "./compactResponseMethodPublicBodySchema.ts";
+export {
+  compactResponse200Schema,
+  compactResponseMutationRequestSchema,
+  compactResponseMutationResponseSchema,
+} from "./compactResponseSchema.ts";
 export { createResponseBodySchema } from "./createResponseBodySchema.ts";
 export {
   createResponse200Schema,

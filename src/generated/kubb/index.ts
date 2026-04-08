@@ -2,6 +2,15 @@ export { allowedToolChoiceSchema } from "./zod/allowedToolChoiceSchema.ts";
 export { allowedToolsParamSchema } from "./zod/allowedToolsParamSchema.ts";
 export { annotationSchema } from "./zod/annotationSchema.ts";
 export { assistantMessageItemParamSchema } from "./zod/assistantMessageItemParamSchema.ts";
+export { compactionBodySchema } from "./zod/compactionBodySchema.ts";
+export { compactionSummaryItemParamSchema } from "./zod/compactionSummaryItemParamSchema.ts";
+export { compactResourceSchema } from "./zod/compactResourceSchema.ts";
+export { compactResponseMethodPublicBodySchema } from "./zod/compactResponseMethodPublicBodySchema.ts";
+export {
+  compactResponse200Schema,
+  compactResponseMutationRequestSchema,
+  compactResponseMutationResponseSchema,
+} from "./zod/compactResponseSchema.ts";
 export { createResponseBodySchema } from "./zod/createResponseBodySchema.ts";
 export {
   createResponse200Schema,

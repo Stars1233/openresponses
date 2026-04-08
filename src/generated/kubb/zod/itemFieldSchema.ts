@@ -3,6 +3,7 @@
  * Do not edit manually.
  */
 
+import { compactionBodySchema } from "./compactionBodySchema.ts";
 import { functionCallOutputSchema } from "./functionCallOutputSchema.ts";
 import { functionCallSchema } from "./functionCallSchema.ts";
 import { messageSchema } from "./messageSchema.ts";
@@ -18,6 +19,7 @@ export const itemFieldSchema = z
     z.lazy(() => functionCallSchema),
     z.lazy(() => functionCallOutputSchema),
     z.lazy(() => reasoningBodySchema),
+    z.lazy(() => compactionBodySchema),
   ])
   .describe(
     "An item representing a message, tool call, tool output, reasoning, or other response element.",

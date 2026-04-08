@@ -55,9 +55,11 @@ allow:
       - FunctionCall
       - FunctionCallOutput
       - ReasoningBody
+      - CompactionBody
     ItemParam:
       - ItemReferenceParam
       - ReasoningItemParam
+      - CompactionSummaryItemParam
       - UserMessageItemParam
       - SystemMessageItemParam
       - DeveloperMessageItemParam
