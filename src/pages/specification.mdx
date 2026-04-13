@@ -98,7 +98,7 @@ data: { "type":"response.output_text.delta","sequence_number":10,"item_id":"msg_
 
 Servers MAY expose the Responses API over a persistent WebSocket connection at the same `/v1/responses` resource. A WebSocket connection is a transport mode for the Responses API; it does not define a separate response object model.
 
-Clients start each turn by sending a JSON object with `type: "response.create"`. The remaining fields follow the standard response creation request body, except transport-specific HTTP fields such as `stream`, `stream_options`, and `background` MUST NOT be sent on WebSocket requests. Servers MUST treat a WebSocket `response.create` message as a request to create a response on the active connection.
+Clients MUST start each turn by sending a JSON object with `type: "response.create"`. The remaining fields follow the standard response creation request body, except HTTP/SSE transport-specific fields such as `stream`, `stream_options`, and `background` MUST NOT be sent on WebSocket requests. Servers MUST treat a WebSocket `response.create` message as a request to create a response on the active connection.
 
 ```json
 {
@@ -118,13 +118,15 @@ Clients start each turn by sending a JSON object with `type: "response.create"`.
 
 Servers MUST send response progress over the WebSocket using the same streaming event objects defined for streaming HTTP responses. Event ordering, `sequence_number`, output item lifecycle, content part lifecycle, and terminal response events have the same meaning on both transports.
 
-A single WebSocket connection MUST process at most one in-flight response at a time. Servers MAY accept multiple `response.create` messages over one connection, but they MUST process those messages sequentially unless they document a provider-specific multiplexing extension.
+A single WebSocket connection MUST process at most one in-flight response at a time. Servers MAY accept multiple `response.create` messages over one connection, but they MUST process those messages sequentially. Servers MUST NOT multiplex multiple in-flight responses over one connection; clients that need parallel runs SHOULD use multiple WebSocket connections.
 
 ### WebSocket Continuation
 
 WebSocket continuation uses the same `previous_response_id` semantics as HTTP. A follow-up `response.create` message SHOULD include only new input items, such as tool outputs and the next user message, plus the `previous_response_id` of the prior response.
 
-Servers MAY keep connection-local response state to make continuation lower latency. If the referenced response is not available from connection-local or persisted state, the server MUST fail the turn with an error whose code is `previous_response_not_found`.
+Servers MUST keep the most recent previous-response state in connection-local memory for the active WebSocket. This connection-local state enables lower-latency continuation and allows `store=false`, including zero data retention deployments, to continue on the same socket without writing response state to persisted storage. With `store=true`, servers MAY hydrate older response IDs from persisted state when available. With `store=false`, there is no persisted fallback; if the referenced response is not available from connection-local state, the server MUST fail the turn with an error whose code is `previous_response_not_found`.
+
+If a continuation turn fails with a `4xx` or `5xx` error, the server MUST evict the referenced `previous_response_id` from the connection-local cache. A later attempt to continue from that evicted `store=false` response ID on the same connection MUST fail with `previous_response_not_found`.
 
 ```json
 {
@@ -148,6 +150,22 @@ Servers MAY keep connection-local response state to make continuation lower late
 ```
 
 Clients MAY send `generate: false` on `response.create` to prepare request state without asking the model to produce output. A warmup request MUST return a response ID that can be used as `previous_response_id` in a later `response.create` message.
+
+### WebSocket Compaction
+
+Server-side compaction configured through `context_management` happens during normal response generation. Clients continue the same WebSocket chain by sending the next `response.create` with the latest `previous_response_id` and only new input items.
+
+The standalone `/responses/compact` endpoint returns a compacted input window, not a response ID. After standalone compaction, clients MUST start a new response on the WebSocket by omitting `previous_response_id` or setting it to `null`, passing the compacted output as the base `input`, and appending the latest user or tool items.
+
+### WebSocket Reconnects
+
+WebSocket connections are limited to 60 minutes. When the limit is reached, servers MUST return an error whose code is `websocket_connection_limit_reached` and clients SHOULD open a new WebSocket connection.
+
+When a connection closes or hits the 60-minute limit, clients SHOULD recover with one of these patterns:
+
+- If the prior response is persisted with `store=true` and the response ID remains valid, continue with `previous_response_id` and new input items.
+- If the chain cannot continue, such as with `store=false`, zero data retention, or `previous_response_not_found`, start a new response by omitting `previous_response_id` or setting it to `null` and send the full input context for the next turn.
+- If the client compacted context with `/responses/compact`, use the returned compacted window as the base `input` for that new response, then append the latest user or tool items.
 
 ## Items
 

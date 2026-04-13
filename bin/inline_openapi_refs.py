@@ -2185,6 +2185,7 @@ def main(argv: list[str]) -> int:
                 "x-unionDisplay",
                 "x-unionTitle",
                 "x-openresponses-websocket",
+                "x-openresponses-disallowed",
             },
         )
         if args.manifest:

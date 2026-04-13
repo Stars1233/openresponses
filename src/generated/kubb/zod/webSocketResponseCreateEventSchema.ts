@@ -24,6 +24,27 @@ export const webSocketResponseCreateEventSchema = z
             "Whether the server should generate model output for this turn. Set to `false` to warm up request state without producing model output.",
           ),
       ),
+      stream: z.optional(
+        z
+          .never()
+          .describe(
+            "This HTTP streaming field MUST NOT be sent in WebSocket `response.create` messages.",
+          ),
+      ),
+      stream_options: z.optional(
+        z
+          .never()
+          .describe(
+            "This HTTP streaming options field MUST NOT be sent in WebSocket `response.create` messages.",
+          ),
+      ),
+      background: z.optional(
+        z
+          .never()
+          .describe(
+            "This HTTP background-mode field MUST NOT be sent in WebSocket `response.create` messages.",
+          ),
+      ),
     }),
   )
   .describe(

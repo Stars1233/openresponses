@@ -13,6 +13,21 @@
         "generate": {
           "type": "boolean",
           "description": "Whether the server should generate model output for this turn. Set to `false` to warm up request state without producing model output."
+        },
+        "stream": {
+          "not": {},
+          "description": "This HTTP streaming field MUST NOT be sent in WebSocket `response.create` messages.",
+          "x-openresponses-disallowed": true
+        },
+        "stream_options": {
+          "not": {},
+          "description": "This HTTP streaming options field MUST NOT be sent in WebSocket `response.create` messages.",
+          "x-openresponses-disallowed": true
+        },
+        "background": {
+          "not": {},
+          "description": "This HTTP background-mode field MUST NOT be sent in WebSocket `response.create` messages.",
+          "x-openresponses-disallowed": true
         }
       },
       "required": ["type"]

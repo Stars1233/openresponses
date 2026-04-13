@@ -29,27 +29,32 @@ export default function ComplianceTester({ defaultApiKey = "" }: Props) {
     setIsRunning(true);
     setResults(new Map());
 
-    // Initialize browser-unsupported tests as CLI-only instead of pending.
+    const runnableTemplates = testTemplates.filter(
+      (test) => !test.unsupportedReason?.(config),
+    );
+
     const initialResults = new Map<string, TestResult>();
-    testTemplates.forEach((test) => {
-      const unsupportedReason = test.unsupportedReason?.(config);
+    runnableTemplates.forEach((test) => {
       initialResults.set(test.id, {
         id: test.id,
         name: test.name,
         description: test.description,
-        status: unsupportedReason ? "skipped" : "pending",
-        errors: unsupportedReason ? [unsupportedReason] : undefined,
+        status: "pending",
       });
     });
     setResults(initialResults);
 
-    await runAllTests(config, (result) => {
-      setResults((prev) => {
-        const next = new Map(prev);
-        next.set(result.id, result);
-        return next;
-      });
-    });
+    await runAllTests(
+      config,
+      (result) => {
+        setResults((prev) => {
+          const next = new Map(prev);
+          next.set(result.id, result);
+          return next;
+        });
+      },
+      runnableTemplates,
+    );
 
     setIsRunning(false);
   }, [config]);
@@ -110,10 +115,137 @@ export default function ComplianceTester({ defaultApiKey = "" }: Props) {
     test.unsupportedReason?.(config),
   ).length;
   const runnableTests = testTemplates.length - cliOnlyCount;
+  const browserRunnableTests = testTemplates.filter(
+    (test) => !test.unsupportedReason?.(config),
+  );
+  const cliOnlyTests = testTemplates.filter((test) =>
+    test.unsupportedReason?.(config),
+  );
   const skippedCount = Array.from(results.values()).filter(
     (r) => r.status === "skipped",
   ).length;
   const otherSkippedCount = Math.max(0, skippedCount - cliOnlyCount);
+
+  const renderTestCard = (test: (typeof testTemplates)[number]) => {
+    const unsupportedReason = test.unsupportedReason?.(config);
+    const isCliOnly = Boolean(unsupportedReason);
+    const result = results.get(test.id) || {
+      id: test.id,
+      name: test.name,
+      description: test.description,
+      status: isCliOnly ? ("skipped" as const) : ("pending" as const),
+      errors: unsupportedReason ? [unsupportedReason] : undefined,
+    };
+    const isExpanded = expandedTests.has(test.id);
+
+    return (
+      <div
+        key={test.id}
+        className={`not-prose rounded-lg border bg-white ${getStatusBorder(result.status)} overflow-hidden shadow-sm transition-colors`}
+      >
+        <button
+          type="button"
+          onClick={() => toggleExpanded(test.id)}
+          className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-stone-50"
+        >
+          <span className="text-xl">{getStatusIcon(result.status)}</span>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-mono font-medium text-stone-900">
+              {test.name}
+            </h3>
+            <p className="truncate text-sm text-stone-600">
+              {test.description}
+            </p>
+          </div>
+          {result.duration && (
+            <span className="font-mono text-xs text-stone-500">
+              {result.duration}ms
+            </span>
+          )}
+          {result.streamEvents !== undefined && (
+            <span className="font-mono text-xs text-stone-500">
+              {result.streamEvents} events
+            </span>
+          )}
+          <span
+            className={`text-stone-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+          >
+            ▼
+          </span>
+        </button>
+
+        {isExpanded && (
+          <div className="border-t border-stone-200 px-5 pb-4">
+            {result.errors && result.errors.length > 0 && (
+              <div className="mt-4">
+                <h4
+                  className={`mb-2 text-sm font-medium ${
+                    result.status === "skipped"
+                      ? "text-stone-700"
+                      : "text-red-600"
+                  }`}
+                >
+                  {result.status === "skipped" ? "Reason" : "Errors"}
+                </h4>
+                <ul className="space-y-1">
+                  {result.errors.map((error) => (
+                    <li
+                      key={error}
+                      className={`rounded border px-3 py-2 font-mono text-sm ${
+                        result.status === "skipped"
+                          ? "border-stone-200 bg-stone-50 text-stone-700"
+                          : "border-red-200 bg-red-50 text-red-700"
+                      }`}
+                    >
+                      {error}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {result.request && (
+              <div className="mt-4">
+                <h4 className="mb-2 text-sm font-medium text-stone-700">
+                  Request
+                </h4>
+                <pre className="max-h-48 overflow-x-auto rounded border border-stone-200 bg-stone-50 p-3 font-mono text-xs text-stone-800">
+                  {JSON.stringify(result.request, null, 2)}
+                </pre>
+              </div>
+            )}
+
+            {result.response && (
+              <div className="mt-4">
+                <h4 className="mb-2 text-sm font-medium text-stone-700">
+                  Response
+                </h4>
+                <pre className="max-h-64 overflow-x-auto rounded border border-stone-200 bg-stone-50 p-3 font-mono text-xs text-stone-800">
+                  {typeof result.response === "string"
+                    ? result.response
+                    : JSON.stringify(result.response, null, 2)}
+                </pre>
+              </div>
+            )}
+
+            {result.status === "pending" && (
+              <p className="mt-4 text-sm text-stone-500 italic">
+                Test has not been run yet
+              </p>
+            )}
+            {result.status === "skipped" && (
+              <div className="mt-4 rounded border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-600">
+                Run this test from the CLI:
+                <pre className="mt-2 overflow-x-auto font-mono text-xs">
+                  {`bun run test:compliance --base-url ${config.baseUrl} --model ${config.model} --filter ${test.id}`}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-8">
@@ -230,7 +362,7 @@ export default function ComplianceTester({ defaultApiKey = "" }: Props) {
             disabled={isRunning || !config.apiKey}
             className="rounded-md bg-orange-600 px-6 py-2.5 font-medium text-white transition-colors hover:bg-orange-500 focus:ring-2 focus:ring-orange-500/50 focus:outline-none disabled:cursor-not-allowed disabled:bg-stone-300"
           >
-            {isRunning ? "Running..." : "Run All Tests"}
+            {isRunning ? "Running..." : "Run Browser Tests"}
           </button>
 
           {results.size > 0 && (
@@ -261,134 +393,36 @@ export default function ComplianceTester({ defaultApiKey = "" }: Props) {
           Test Suite
         </h2>
 
-        <div className="space-y-3">
-          {testTemplates.map((test) => {
-            const isCliOnly = Boolean(test.unsupportedReason?.(config));
-            const result = results.get(test.id) || {
-              id: test.id,
-              name: test.name,
-              description: test.description,
-              status: isCliOnly ? ("skipped" as const) : ("pending" as const),
-              errors: isCliOnly
-                ? [test.unsupportedReason?.(config)].filter(
-                    (error): error is string => Boolean(error),
-                  )
-                : undefined,
-            };
-            const isExpanded = expandedTests.has(test.id);
+        <div className="space-y-6">
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="font-mono text-sm font-semibold tracking-wide text-stone-700 uppercase">
+                Browser Runnable
+              </h3>
+              <span className="font-mono text-xs text-stone-500">
+                {browserRunnableTests.length} tests
+              </span>
+            </div>
+            <div className="space-y-3">
+              {browserRunnableTests.map(renderTestCard)}
+            </div>
+          </div>
 
-            return (
-              <div
-                key={test.id}
-                className={`not-prose rounded-lg border bg-white ${getStatusBorder(result.status)} overflow-hidden shadow-sm transition-colors`}
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleExpanded(test.id)}
-                  className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-stone-50"
-                >
-                  <span className="text-xl">
-                    {getStatusIcon(result.status)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-mono font-medium text-stone-900">
-                      {test.name}
-                    </h3>
-                    <p className="truncate text-sm text-stone-600">
-                      {test.description}
-                    </p>
-                  </div>
-                  {result.duration && (
-                    <span className="font-mono text-xs text-stone-500">
-                      {result.duration}ms
-                    </span>
-                  )}
-                  {result.streamEvents !== undefined && (
-                    <span className="font-mono text-xs text-stone-500">
-                      {result.streamEvents} events
-                    </span>
-                  )}
-                  <span
-                    className={`text-stone-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                  >
-                    ▼
-                  </span>
-                </button>
-
-                {isExpanded && (
-                  <div className="border-t border-stone-200 px-5 pb-4">
-                    {result.errors && result.errors.length > 0 && (
-                      <div className="mt-4">
-                        <h4
-                          className={`mb-2 text-sm font-medium ${
-                            result.status === "skipped"
-                              ? "text-stone-700"
-                              : "text-red-600"
-                          }`}
-                        >
-                          {result.status === "skipped" ? "Reason" : "Errors"}
-                        </h4>
-                        <ul className="space-y-1">
-                          {result.errors.map((error) => (
-                            <li
-                              key={error}
-                              className={`rounded border px-3 py-2 font-mono text-sm ${
-                                result.status === "skipped"
-                                  ? "border-stone-200 bg-stone-50 text-stone-700"
-                                  : "border-red-200 bg-red-50 text-red-700"
-                              }`}
-                            >
-                              {error}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {result.request && (
-                      <div className="mt-4">
-                        <h4 className="mb-2 text-sm font-medium text-stone-700">
-                          Request
-                        </h4>
-                        <pre className="max-h-48 overflow-x-auto rounded border border-stone-200 bg-stone-50 p-3 font-mono text-xs text-stone-800">
-                          {JSON.stringify(result.request, null, 2)}
-                        </pre>
-                      </div>
-                    )}
-
-                    {result.response && (
-                      <div className="mt-4">
-                        <h4 className="mb-2 text-sm font-medium text-stone-700">
-                          Response
-                        </h4>
-                        <pre className="max-h-64 overflow-x-auto rounded border border-stone-200 bg-stone-50 p-3 font-mono text-xs text-stone-800">
-                          {typeof result.response === "string"
-                            ? result.response
-                            : JSON.stringify(result.response, null, 2)}
-                        </pre>
-                      </div>
-                    )}
-
-                    {result.status === "pending" && (
-                      <p className="mt-4 text-sm text-stone-500 italic">
-                        Test has not been run yet
-                      </p>
-                    )}
-                    {result.status === "skipped" && (
-                      <div className="mt-4 rounded border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-600">
-                        Run this test from the CLI:
-                        <pre className="mt-2 overflow-x-auto font-mono text-xs">
-                          {
-                            "bun run test:compliance --base-url https://api.openai.com/v1 --filter websocket-response"
-                          }
-                        </pre>
-                      </div>
-                    )}
-                  </div>
-                )}
+          {cliOnlyTests.length > 0 && (
+            <div className="border-t border-stone-200 pt-6">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="font-mono text-sm font-semibold tracking-wide text-stone-700 uppercase">
+                  CLI Only
+                </h3>
+                <span className="font-mono text-xs text-stone-500">
+                  {cliOnlyTests.length} tests
+                </span>
               </div>
-            );
-          })}
+              <div className="space-y-3">
+                {cliOnlyTests.map(renderTestCard)}
+              </div>
+            </div>
+          )}
         </div>
       </section>
     </div>

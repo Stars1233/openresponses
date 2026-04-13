@@ -428,10 +428,13 @@ const buildParameterRows = (
   schema: OpenApiSchema | null | undefined,
   sections: ReferenceSections,
 ): ParameterRow[] => {
-  if (!schema || !schema.properties) return [];
-  const requiredSet = new Set(schema.required || []);
+  const properties = getSchemaProperties(doc, schema as OpenApiSchemaExt);
+  if (!schema || !properties) return [];
+  const requiredSet = new Set(
+    getSchemaRequired(doc, schema as OpenApiSchemaExt),
+  );
 
-  return Object.entries(schema.properties).map(([name, prop]) => {
+  return Object.entries(properties).map(([name, prop]) => {
     const enumValues = getEnumValues(doc, prop as OpenApiSchemaExt);
     const enumDescriptions = getEnumDescriptions(doc, prop as OpenApiSchemaExt);
     const typeLabel = getTypeLabel(doc, prop as OpenApiSchemaExt);

@@ -7,6 +7,7 @@ export type OpenApiSchemaExt = OpenApiSchema & {
   "x-unionDisplay"?: "inline" | "section";
   "x-unionTitle"?: string;
   "x-enumDescriptions"?: Record<string, string>;
+  "x-openresponses-disallowed"?: boolean;
 };
 
 export type EnumDescriptions = Record<string, string>;
@@ -173,10 +174,22 @@ export const getSchemaProperties = (
     return getSchemaProperties(doc, schema.items as OpenApiSchemaExt);
   }
   if (schema.allOf) {
+    const merged: Record<string, OpenApiSchemaExt> = {};
     for (const item of schema.allOf) {
       const props = getSchemaProperties(doc, item as OpenApiSchemaExt);
-      if (props) return props;
+      if (props) {
+        for (const [name, prop] of Object.entries(
+          props as Record<string, OpenApiSchemaExt | false>,
+        )) {
+          if (prop === false || prop["x-openresponses-disallowed"] === true) {
+            delete merged[name];
+          } else {
+            merged[name] = prop;
+          }
+        }
+      }
     }
+    if (Object.keys(merged).length > 0) return merged;
   }
   if (schema.anyOf) {
     for (const item of schema.anyOf) {
@@ -204,10 +217,13 @@ export const getSchemaRequired = (
     return getSchemaRequired(doc, schema.items as OpenApiSchemaExt);
   }
   if (schema.allOf) {
-    for (const item of schema.allOf) {
-      const req = getSchemaRequired(doc, item as OpenApiSchemaExt);
-      if (req.length) return req;
-    }
+    return Array.from(
+      new Set(
+        schema.allOf.flatMap((item) =>
+          getSchemaRequired(doc, item as OpenApiSchemaExt),
+        ),
+      ),
+    );
   }
   if (schema.anyOf) {
     for (const item of schema.anyOf) {
