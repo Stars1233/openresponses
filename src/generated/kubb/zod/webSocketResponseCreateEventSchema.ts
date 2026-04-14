@@ -26,21 +26,27 @@ export const webSocketResponseCreateEventSchema = z
       ),
       stream: z.optional(
         z
-          .never()
+          .string()
+          .min(1)
+          .max(0)
           .describe(
             "This HTTP streaming field MUST NOT be sent in WebSocket `response.create` messages.",
           ),
       ),
       stream_options: z.optional(
         z
-          .never()
+          .string()
+          .min(1)
+          .max(0)
           .describe(
             "This HTTP streaming options field MUST NOT be sent in WebSocket `response.create` messages.",
           ),
       ),
       background: z.optional(
         z
-          .never()
+          .string()
+          .min(1)
+          .max(0)
           .describe(
             "This HTTP background-mode field MUST NOT be sent in WebSocket `response.create` messages.",
           ),

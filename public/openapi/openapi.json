@@ -1359,17 +1359,23 @@
                 "description": "Whether the server should generate model output for this turn. Set to `false` to warm up request state without producing model output."
               },
               "stream": {
-                "not": {},
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 0,
                 "description": "This HTTP streaming field MUST NOT be sent in WebSocket `response.create` messages.",
                 "x-openresponses-disallowed": true
               },
               "stream_options": {
-                "not": {},
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 0,
                 "description": "This HTTP streaming options field MUST NOT be sent in WebSocket `response.create` messages.",
                 "x-openresponses-disallowed": true
               },
               "background": {
-                "not": {},
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 0,
                 "description": "This HTTP background-mode field MUST NOT be sent in WebSocket `response.create` messages.",
                 "x-openresponses-disallowed": true
               }
@@ -1382,6 +1388,55 @@
         ],
         "title": "WebSocket response create event",
         "description": "A client-sent WebSocket event that starts a Responses turn. It uses the normal response-create body plus a required `type` field."
+      },
+      "WebSocketErrorEvent": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["error"],
+            "description": "The event type. Always `error`.",
+            "default": "error"
+          },
+          "status": {
+            "type": "integer",
+            "description": "The HTTP-style status code for the WebSocket error."
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "The error type, when supplied."
+              },
+              "code": {
+                "type": "string",
+                "description": "A machine-readable error code."
+              },
+              "message": {
+                "type": "string",
+                "description": "A human-readable error message."
+              },
+              "param": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "The request parameter associated with the error, when supplied."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": ["code", "message"],
+            "additionalProperties": true,
+            "description": "The WebSocket error payload."
+          }
+        },
+        "type": "object",
+        "required": ["type", "status", "error"],
+        "title": "WebSocket error event",
+        "description": "A WebSocket error envelope returned for Responses WebSocket mode failures."
       },
       "IncompleteDetails": {
         "properties": {
@@ -3799,9 +3854,12 @@
   "paths": {
     "/responses": {
       "x-openresponses-websocket": {
-        "description": "Open a WebSocket connection to `/v1/responses`. Send client events using the WebSocketResponseCreateEvent schema. Server messages use the same streaming event schemas as `text/event-stream` responses.",
+        "description": "Open a WebSocket connection to `/v1/responses`. Send client events using the WebSocketResponseCreateEvent schema. Server progress messages use the same streaming event schemas as `text/event-stream` responses. WebSocket failures use the WebSocketErrorEvent schema.",
         "clientMessage": {
           "$ref": "#/components/schemas/WebSocketResponseCreateEvent"
+        },
+        "errorMessage": {
+          "$ref": "#/components/schemas/WebSocketErrorEvent"
         }
       },
       "post": {

@@ -24,6 +24,7 @@ import { responseReasoningSummaryPartDoneStreamingEventSchema } from "../generat
 import { responseRefusalDeltaStreamingEventSchema } from "../generated/kubb/zod/responseRefusalDeltaStreamingEventSchema";
 import { responseRefusalDoneStreamingEventSchema } from "../generated/kubb/zod/responseRefusalDoneStreamingEventSchema";
 import type { responseResourceSchema } from "../generated/kubb/zod/responseResourceSchema";
+import { webSocketErrorEventSchema } from "../generated/kubb/zod/webSocketErrorEventSchema";
 
 export const streamingEventSchema = z.union([
   responseCreatedStreamingEventSchema,
@@ -51,13 +52,27 @@ export const streamingEventSchema = z.union([
   responseOutputTextAnnotationAddedStreamingEventSchema,
   errorStreamingEventSchema,
 ]);
+export const webSocketStreamingEventSchema = z.union([
+  streamingEventSchema,
+  webSocketErrorEventSchema,
+]);
 
 export type StreamingEvent = z.infer<typeof streamingEventSchema>;
+export type WebSocketStreamingEvent = z.infer<
+  typeof webSocketStreamingEventSchema
+>;
+
+interface ParseStreamingEventOptions {
+  transport?: "http" | "websocket";
+}
 
 export interface ParsedEvent {
   event: string;
   data: unknown;
-  validationResult: z.SafeParseReturnType<unknown, StreamingEvent>;
+  validationResult: z.SafeParseReturnType<
+    unknown,
+    StreamingEvent | WebSocketStreamingEvent
+  >;
 }
 
 export interface SSEParseResult {
@@ -77,8 +92,13 @@ const getEventType = (data: unknown) => {
 export function parseStreamingEventData(
   data: unknown,
   eventName?: string,
+  options: ParseStreamingEventOptions = {},
 ): ParsedEvent {
-  const validationResult = streamingEventSchema.safeParse(data);
+  const validationSchema =
+    options.transport === "websocket"
+      ? webSocketStreamingEventSchema
+      : streamingEventSchema;
+  const validationResult = validationSchema.safeParse(data);
   return {
     event: eventName || getEventType(data),
     data,

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
+import { webSocketErrorEventSchema } from "../generated/kubb/zod/webSocketErrorEventSchema";
 import { webSocketResponseCreateEventSchema } from "../generated/kubb/zod/webSocketResponseCreateEventSchema";
 import { testTemplates } from "./compliance-tests";
+import { parseStreamingEventData } from "./sse-parser";
 
 const websocketTemplateIds = [
   "websocket-response",
@@ -89,6 +91,40 @@ describe("WebSocket compliance coverage", () => {
 
     expect(
       webSocketResponseCreateEventSchema.safeParse(continuationRequest).success,
+    ).toBe(true);
+  });
+
+  it("accepts documented WebSocket error envelopes", () => {
+    const previousResponseNotFound = {
+      type: "error",
+      status: 400,
+      error: {
+        code: "previous_response_not_found",
+        message: "Previous response with id 'resp_abc' not found.",
+        param: "previous_response_id",
+      },
+    };
+    const connectionLimitReached = {
+      type: "error",
+      error: {
+        type: "invalid_request_error",
+        code: "websocket_connection_limit_reached",
+        message:
+          "Responses websocket connection limit reached (60 minutes). Create a new websocket connection to continue.",
+      },
+      status: 400,
+    };
+
+    expect(
+      webSocketErrorEventSchema.safeParse(previousResponseNotFound).success,
+    ).toBe(true);
+    expect(
+      webSocketErrorEventSchema.safeParse(connectionLimitReached).success,
+    ).toBe(true);
+    expect(
+      parseStreamingEventData(previousResponseNotFound, undefined, {
+        transport: "websocket",
+      }).validationResult.success,
     ).toBe(true);
   });
 });

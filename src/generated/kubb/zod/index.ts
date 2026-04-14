@@ -105,4 +105,5 @@ export { urlCitationParamSchema } from "./urlCitationParamSchema.ts";
 export { usageSchema } from "./usageSchema.ts";
 export { userMessageItemParamSchema } from "./userMessageItemParamSchema.ts";
 export { verbosityEnumSchema } from "./verbosityEnumSchema.ts";
+export { webSocketErrorEventSchema } from "./webSocketErrorEventSchema.ts";
 export { webSocketResponseCreateEventSchema } from "./webSocketResponseCreateEventSchema.ts";

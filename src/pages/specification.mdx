@@ -167,6 +167,22 @@ When a connection closes or hits the 60-minute limit, clients SHOULD recover wit
 - If the chain cannot continue, such as with `store=false`, zero data retention, or `previous_response_not_found`, start a new response by omitting `previous_response_id` or setting it to `null` and send the full input context for the next turn.
 - If the client compacted context with `/responses/compact`, use the returned compacted window as the base `input` for that new response, then append the latest user or tool items.
 
+### WebSocket Errors
+
+WebSocket failures MUST be sent as a JSON `error` envelope with a `status` code and an `error.code`. Clients SHOULD handle at least `previous_response_not_found` and `websocket_connection_limit_reached`.
+
+```json
+{
+  "type": "error",
+  "status": 400,
+  "error": {
+    "code": "previous_response_not_found",
+    "message": "Previous response with id 'resp_abc' not found.",
+    "param": "previous_response_id"
+  }
+}
+```
+
 ## Items
 
 Items are the core unit of context in Open Responses. Open Responses defines a few types of items that are common to all providers, such as `message` or `function_call`, and defines how to define additional, provider-specific item types. There are some general principles that apply to all items:

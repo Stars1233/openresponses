@@ -12,6 +12,19 @@ export type OpenApiSchemaExt = OpenApiSchema & {
 
 export type EnumDescriptions = Record<string, string>;
 
+const isDisallowedSchemaProperty = (
+  prop: OpenApiSchemaExt | false | null | undefined,
+) => prop === false || prop?.["x-openresponses-disallowed"] === true;
+
+const filterDisallowedProperties = (
+  properties: Record<string, OpenApiSchemaExt>,
+) =>
+  Object.fromEntries(
+    Object.entries(properties).filter(
+      ([, prop]) => !isDisallowedSchemaProperty(prop),
+    ),
+  ) as Record<string, OpenApiSchemaExt>;
+
 const getSchemaFromRef = (doc: OpenApiDocument, ref: string) => {
   const refName = ref.split("/").pop();
   if (!refName) return null;
@@ -168,22 +181,39 @@ export const getSchemaProperties = (
   if (!schema) return null;
   if (schema.$ref) return getSchemaProperties(doc, resolveRef(doc, schema));
   if (schema.type === "object" && schema.properties) {
-    return schema.properties as Record<string, OpenApiSchemaExt>;
+    return filterDisallowedProperties(
+      schema.properties as Record<string, OpenApiSchemaExt>,
+    );
   }
   if (schema.type === "array" && schema.items) {
     return getSchemaProperties(doc, schema.items as OpenApiSchemaExt);
   }
   if (schema.allOf) {
     const merged: Record<string, OpenApiSchemaExt> = {};
+    const disallowed = new Set<string>();
     for (const item of schema.allOf) {
+      const itemSchema = resolveRef(doc, item as OpenApiSchemaExt);
+      const itemProperties = itemSchema?.properties as
+        | Record<string, OpenApiSchemaExt | false>
+        | undefined;
+      if (itemProperties) {
+        for (const [name, prop] of Object.entries(itemProperties)) {
+          if (isDisallowedSchemaProperty(prop)) {
+            delete merged[name];
+            disallowed.add(name);
+          }
+        }
+      }
+
       const props = getSchemaProperties(doc, item as OpenApiSchemaExt);
       if (props) {
         for (const [name, prop] of Object.entries(
           props as Record<string, OpenApiSchemaExt | false>,
         )) {
-          if (prop === false || prop["x-openresponses-disallowed"] === true) {
+          if (isDisallowedSchemaProperty(prop)) {
             delete merged[name];
-          } else {
+            disallowed.add(name);
+          } else if (prop !== false && !disallowed.has(name)) {
             merged[name] = prop;
           }
         }

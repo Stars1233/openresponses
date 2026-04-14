@@ -105,4 +105,5 @@ export { urlCitationParamSchema } from "./zod/urlCitationParamSchema.ts";
 export { usageSchema } from "./zod/usageSchema.ts";
 export { userMessageItemParamSchema } from "./zod/userMessageItemParamSchema.ts";
 export { verbosityEnumSchema } from "./zod/verbosityEnumSchema.ts";
+export { webSocketErrorEventSchema } from "./zod/webSocketErrorEventSchema.ts";
 export { webSocketResponseCreateEventSchema } from "./zod/webSocketResponseCreateEventSchema.ts";

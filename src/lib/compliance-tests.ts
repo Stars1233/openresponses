@@ -644,7 +644,9 @@ async function makeWebSocketSession(
 
       try {
         const parsed = JSON.parse(data);
-        const parsedEvent = parseStreamingEventData(parsed);
+        const parsedEvent = parseStreamingEventData(parsed, undefined, {
+          transport: "websocket",
+        });
         turn.rawMessages.push(parsed);
         turn.events.push(parsedEvent);
 
@@ -926,13 +928,12 @@ async function runWebSocketPreviousResponseNotFoundTest(
     const [turn] = await makeWebSocketSession(config, [request]);
     const errorCode =
       turn.errorCode ?? getResponseErrorCode(turn.finalResponse);
-    const errors =
-      errorCode === "previous_response_not_found"
-        ? []
-        : [
-            `Expected previous_response_not_found but got ${errorCode ?? "no error code"}`,
-            ...turn.errors,
-          ];
+    const errors = [...turn.errors];
+    if (errorCode !== "previous_response_not_found") {
+      errors.unshift(
+        `Expected previous_response_not_found but got ${errorCode ?? "no error code"}`,
+      );
+    }
 
     return {
       id: template.id,
@@ -1017,19 +1018,25 @@ async function runWebSocketFailedContinuationEvictsCacheTest(
 
     if (!failedTurn) {
       errors.push("Failed WebSocket continuation turn did not run");
-    } else if (!isFailedTurn(failedTurn)) {
-      errors.push(
-        `Expected second WebSocket continuation turn to fail but got status ${failedTurn.finalResponse?.status ?? "no terminal response"}`,
-      );
+    } else {
+      errors.push(...failedTurn.errors);
+      if (!isFailedTurn(failedTurn)) {
+        errors.push(
+          `Expected second WebSocket continuation turn to fail but got status ${failedTurn.finalResponse?.status ?? "no terminal response"}`,
+        );
+      }
     }
 
     const retryErrorCode = getTurnErrorCode(retryTurn);
     if (!retryTurn) {
       errors.push("Retry WebSocket continuation turn did not run");
-    } else if (retryErrorCode !== "previous_response_not_found") {
-      errors.push(
-        `Expected previous_response_not_found after failed continuation eviction but got ${retryErrorCode ?? "no error code"}`,
-      );
+    } else {
+      errors.push(...retryTurn.errors);
+      if (retryErrorCode !== "previous_response_not_found") {
+        errors.push(
+          `Expected previous_response_not_found after failed continuation eviction but got ${retryErrorCode ?? "no error code"}`,
+        );
+      }
     }
 
     return {

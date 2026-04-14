@@ -56,10 +56,12 @@ Parameters may be supplied as either `application/json` or `application/x-www-fo
 
 ## WebSocket Mode
 
-Open a WebSocket connection to `/v1/responses` and start each turn with a JSON `response.create` client message. The message uses the normal response creation body, except HTTP transport fields such as `stream`, `stream_options`, and `background` are not sent. Server messages use the same streaming event objects as `text/event-stream` responses.
+Open a WebSocket connection to `/v1/responses` and start each turn with a JSON `response.create` client message. The message uses the normal response creation body, except HTTP transport fields such as `stream`, `stream_options`, and `background` are not sent. Server progress messages use the same streaming event objects as `text/event-stream` responses, while WebSocket failures use an `error` envelope.
 
 <Reference schemaName="WebSocketResponseCreateEvent" header="Client Message" includeSections={false} />
 
+<Reference schemaName="WebSocketErrorEvent" header="Error Message" includeSections={false} />
+
 # API Objects
 
-<ReferenceSections schemaNames={["CreateResponseBody", "ResponseResource", "WebSocketResponseCreateEvent"]} />
+<ReferenceSections schemaNames={["CreateResponseBody", "ResponseResource", "WebSocketResponseCreateEvent", "WebSocketErrorEvent"]} />

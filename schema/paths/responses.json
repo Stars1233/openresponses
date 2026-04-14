@@ -1,8 +1,11 @@
 {
   "x-openresponses-websocket": {
-    "description": "Open a WebSocket connection to `/v1/responses`. Send client events using the WebSocketResponseCreateEvent schema. Server messages use the same streaming event schemas as `text/event-stream` responses.",
+    "description": "Open a WebSocket connection to `/v1/responses`. Send client events using the WebSocketResponseCreateEvent schema. Server progress messages use the same streaming event schemas as `text/event-stream` responses. WebSocket failures use the WebSocketErrorEvent schema.",
     "clientMessage": {
       "$ref": "../components/schemas/WebSocketResponseCreateEvent.json"
+    },
+    "errorMessage": {
+      "$ref": "../components/schemas/WebSocketErrorEvent.json"
     }
   },
   "post": {
