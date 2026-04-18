@@ -203,15 +203,6 @@ function hasResponseId(response: unknown) {
   return parseResult.data.id ? [] : ["Warmup response did not include an id"];
 }
 
-function hasNoOutput(response: unknown) {
-  const parseResult = responseResourceSchema.safeParse(response);
-  if (!parseResult.success) return [];
-  if ((parseResult.data.output?.length ?? 0) > 0) {
-    return ["Expected generate:false warmup response to return no output"];
-  }
-  return [];
-}
-
 export const testTemplates: TestTemplate[] = [
   {
     id: "basic-response",
@@ -310,25 +301,6 @@ export const testTemplates: TestTemplate[] = [
     }),
     validators: [],
     run: runWebSocketReconnectStoreFalseRecoveryTest,
-  },
-
-  {
-    id: "websocket-generate-false",
-    name: "WebSocket Generate False",
-    description:
-      "Warms request state with generate:false, then chains a generated response from the warmup response id",
-    transport: "websocket",
-    streaming: true,
-    unsupportedReason: webSocketBrowserUnsupported,
-    getRequest: (config) => ({
-      type: "response.create",
-      model: config.model,
-      store: false,
-      generate: false,
-      input: "Prepare to answer with exactly: warmed",
-    }),
-    validators: [completedStatus],
-    run: runWebSocketGenerateFalseTest,
   },
 
   {
@@ -1040,85 +1012,6 @@ async function runWebSocketReconnectStoreFalseRecoveryTest(
       status: "failed",
       duration: Date.now() - startTime,
       request: firstRequest,
-      errors: [error instanceof Error ? error.message : String(error)],
-    };
-  }
-}
-
-async function runWebSocketGenerateFalseTest(
-  config: TestConfig,
-  template: TestTemplate,
-): Promise<TestResult> {
-  const startTime = Date.now();
-  const warmupRequest = template.getRequest(config);
-
-  try {
-    const [warmupTurn, generatedTurn] = await makeWebSocketSession(config, [
-      warmupRequest,
-      (turns) => {
-        const previousResponseId = turns[0]?.finalResponse?.id;
-        if (!previousResponseId) {
-          throw new Error("Warmup WebSocket turn did not return a response id");
-        }
-        return {
-          type: "response.create",
-          model: config.model,
-          store: false,
-          previous_response_id: previousResponseId,
-          input: "Reply with exactly: warmed",
-        };
-      },
-    ]);
-    const warmupErrors = [
-      ...warmupTurn.errors,
-      ...hasResponseId(warmupTurn.finalResponse),
-      ...hasNoOutput(warmupTurn.finalResponse),
-    ];
-
-    if (
-      warmupErrors.length > 0 ||
-      !warmupTurn.finalResponse?.id ||
-      !generatedTurn
-    ) {
-      return {
-        id: template.id,
-        name: template.name,
-        description: template.description,
-        status: "failed",
-        duration: Date.now() - startTime,
-        request: warmupRequest,
-        response: warmupTurn.finalResponse,
-        errors:
-          warmupErrors.length > 0
-            ? warmupErrors
-            : ["Generated WebSocket continuation turn did not run"],
-        streamEvents: warmupTurn.events.length,
-      };
-    }
-
-    const generatedResult = createResponseResult(
-      template,
-      [warmupTurn.request, generatedTurn.request],
-      generatedTurn.finalResponse,
-      generatedTurn,
-      startTime,
-      { streaming: true, sseResult: generatedTurn, transport: "websocket" },
-    );
-
-    return {
-      ...generatedResult,
-      request: [warmupTurn.request, generatedTurn.request],
-      response: [warmupTurn.finalResponse, generatedTurn.finalResponse],
-      streamEvents: warmupTurn.events.length + generatedTurn.events.length,
-    };
-  } catch (error) {
-    return {
-      id: template.id,
-      name: template.name,
-      description: template.description,
-      status: "failed",
-      duration: Date.now() - startTime,
-      request: warmupRequest,
       errors: [error instanceof Error ? error.message : String(error)],
     };
   }

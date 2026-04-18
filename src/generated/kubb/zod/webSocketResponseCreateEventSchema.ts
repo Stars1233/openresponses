@@ -17,13 +17,6 @@ export const webSocketResponseCreateEventSchema = z
         .enum(["response.create"])
         .default("response.create")
         .describe("The client event type. Always `response.create`."),
-      generate: z.optional(
-        z
-          .boolean()
-          .describe(
-            "Whether the server should generate model output for this turn. Set to `false` to warm up request state without producing model output.",
-          ),
-      ),
       stream: z.optional(
         z
           .string()

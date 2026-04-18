@@ -1354,10 +1354,6 @@
                 "description": "The client event type. Always `response.create`.",
                 "default": "response.create"
               },
-              "generate": {
-                "type": "boolean",
-                "description": "Whether the server should generate model output for this turn. Set to `false` to warm up request state without producing model output."
-              },
               "stream": {
                 "type": "string",
                 "minLength": 1,

@@ -10,10 +10,6 @@
           "default": "response.create",
           "x-stainless-const": true
         },
-        "generate": {
-          "type": "boolean",
-          "description": "Whether the server should generate model output for this turn. Set to `false` to warm up request state without producing model output."
-        },
         "stream": {
           "type": "string",
           "minLength": 1,

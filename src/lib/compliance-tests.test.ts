@@ -9,7 +9,6 @@ const websocketTemplateIds = [
   "websocket-sequential-responses",
   "websocket-continuation",
   "websocket-reconnect-store-false-recovery",
-  "websocket-generate-false",
   "websocket-previous-response-not-found",
   "websocket-failed-continuation-evicts-cache",
   "websocket-compact-new-chain",
