@@ -1686,7 +1686,12 @@ async function runTest(
       };
     }
 
-    const response = await makeRequest(config, endpoint, requestBody, streaming);
+    const response = await makeRequest(
+      config,
+      endpoint,
+      requestBody,
+      streaming,
+    );
     const duration = Date.now() - startTime;
     const { rawData, sseResult } = await readResponseBody(response, streaming);
 
