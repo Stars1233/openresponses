@@ -4073,14 +4073,14 @@
   "paths": {
     "/responses": {
       "x-openresponses-websocket": {
+        "x-openresponses-added-in": "2026-04-24",
         "description": "Open a WebSocket connection to `/v1/responses`. Send client events using the WebSocketResponseCreateEvent schema. Server progress messages use the same streaming event schemas as `text/event-stream` responses. WebSocket failures use the WebSocketErrorEvent schema.",
         "clientMessage": {
           "$ref": "#/components/schemas/WebSocketResponseCreateEvent"
         },
         "errorMessage": {
           "$ref": "#/components/schemas/WebSocketErrorEvent"
-        },
-        "x-openresponses-added-in": "2026-04-24"
+        }
       },
       "post": {
         "summary": "Create response",
@@ -4198,6 +4198,7 @@
     },
     "/responses/compact": {
       "post": {
+        "x-openresponses-added-in": "2026-04-24",
         "summary": "Compact a response",
         "description": "Compact a conversation. Returns a compacted response object.",
         "operationId": "compactResponse",
@@ -4222,8 +4223,7 @@
               }
             }
           }
-        },
-        "x-openresponses-added-in": "2026-04-24"
+        }
       }
     }
   }

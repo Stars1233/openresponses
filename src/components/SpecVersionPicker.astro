@@ -1,0 +1,41 @@
+---
+import { specVersionMetadata } from "../lib/specVersionMetadata";
+
+type Props = {
+  currentVersion: string;
+  basePath: string;
+};
+
+const { currentVersion, basePath } = Astro.props as Props;
+---
+
+<label
+  class="not-prose inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white/70 px-2 py-1 text-xs font-medium text-slate-500"
+>
+  <span class="hidden sm:inline">Version</span>
+  <select
+    id="spec-version-picker"
+    aria-label="Open Responses version"
+    class="cursor-pointer bg-transparent font-mono text-xs font-semibold text-slate-700"
+  >
+    {
+      specVersionMetadata.map((release) => (
+        <option
+          value={`${basePath}/${release.version}`}
+          selected={release.version === currentVersion}
+        >
+          {release.version}
+        </option>
+      ))
+    }
+  </select>
+</label>
+
+<script>
+  const picker = document.querySelector<HTMLSelectElement>(
+    "#spec-version-picker",
+  );
+  picker?.addEventListener("change", () => {
+    window.location.assign(`${picker.value}${window.location.hash}`);
+  });
+</script>

@@ -1,0 +1,22 @@
+---
+import { findSpecVersionMetadata } from "../lib/specVersionMetadata";
+
+type Props = {
+  version: string;
+  compact?: boolean;
+};
+
+const { version, compact = false } = Astro.props as Props;
+if (!findSpecVersionMetadata(version)) {
+  throw new Error(`Unknown specification version: ${version}`);
+}
+---
+
+<span class:list={["not-prose inline-flex", { "my-2": !compact }]}>
+  <a
+    href={`/changelog#${version}`}
+    class="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 font-mono text-[11px] font-semibold text-amber-700 no-underline"
+  >
+    Added {version}
+  </a>
+</span>

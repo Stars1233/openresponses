@@ -1,0 +1,27 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import { findSpecVersion, specVersions } from "../../lib/specVersions";
+
+export function getStaticPaths() {
+  return specVersions.map((release) => ({
+    params: { version: release.version },
+    props: { version: release.version },
+  }));
+}
+
+const release = findSpecVersion(Astro.props.version);
+if (!release) {
+  throw new Error(`Unknown specification version: ${Astro.props.version}`);
+}
+
+const { Content } = release;
+const frontmatter = {
+  title: `Specification ${release.version}`,
+  specVersion: release.version,
+  versionBasePath: "/specification",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <Content />
+</DocsLayout>

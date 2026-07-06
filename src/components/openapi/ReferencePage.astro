@@ -1,0 +1,209 @@
+---
+import AddedIn from "../AddedIn.astro";
+import Reference from "./Reference.astro";
+import ReferenceSections from "./ReferenceSections.astro";
+import type { OpenApiDocument } from "../../lib/openapi/types";
+
+type Props = {
+  apiSpec: OpenApiDocument;
+  openApiHref: string;
+};
+
+const { apiSpec, openApiHref } = Astro.props as Props;
+const schemas = apiSpec.components?.schemas ?? {};
+const websocketMetadata =
+  apiSpec.paths["/responses"]?.["x-openresponses-websocket"];
+const websocketAddedIn = websocketMetadata?.["x-openresponses-added-in"];
+const compactionAddedIn =
+  apiSpec.paths["/responses/compact"]?.post?.["x-openresponses-added-in"];
+const hasWebSocket = Boolean(
+  schemas.WebSocketResponseCreateEvent && schemas.WebSocketErrorEvent,
+);
+const hasCompaction = Boolean(
+  apiSpec.paths["/responses/compact"]?.post &&
+  schemas.CompactResponseMethodPublicBody &&
+  schemas.CompactResource,
+);
+const apiObjectSchemaNames = [
+  "CreateResponseBody",
+  "ResponseResource",
+  "WebSocketResponseCreateEvent",
+  "WebSocketErrorEvent",
+  "CompactResponseMethodPublicBody",
+  "CompactResource",
+].filter((name) => Boolean(schemas[name]));
+---
+
+<h1 class="page-title">Reference</h1>
+
+<a href={openApiHref} class="text-slate-500" target="_blank" rel="noreferrer">
+  Full OpenAPI Schema
+</a>
+
+<div
+  class="not-prose mt-8 flex flex-row items-center gap-2 rounded-lg border-1 border-slate-300 bg-slate-100 p-2"
+>
+  <span
+    class="rounded border-1 border-blue-400 bg-blue-100 px-2 py-1 text-xs font-bold text-blue-600"
+  >
+    POST
+  </span>
+  <span class="font-mono">/v1/responses</span>
+</div>
+
+<h2 id="request-parameters">Request Parameters</h2>
+
+<p>
+  The Responses API allows you to generate text, execute tools, and handle
+  multi-turn conversations. It supports both synchronous requests and streaming
+  for real-time output.
+</p>
+
+<p>
+  Parameters may be supplied as either <code>application/json</code> or
+  <code>application/x-www-form-urlencoded</code>.
+</p>
+
+<h3 id="request-headers">Headers</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Header</th>
+      <th>Values</th>
+      <th>Required?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>Content-Type</code></td>
+      <td>
+        <code>application/json</code> or
+        <code>application/x-www-form-urlencoded</code>
+      </td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td><code>Authorization</code></td>
+      <td>
+        Authorization token, usually in the form of
+        <code>Bearer [secret token]</code>
+      </td>
+      <td>Yes</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="request-body">Body</h3>
+
+<Reference apiSpec={apiSpec} includeSections={false} />
+
+<h2 id="response-parameters">Response Parameters</h2>
+
+<h3 id="response-headers">Headers</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Header</th>
+      <th>Values</th>
+      <th>Required?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>Content-Type</code></td>
+      <td><code>application/json</code> or <code>text/event-stream</code></td>
+      <td>Yes</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="response-body">Body</h3>
+
+<Reference
+  apiSpec={apiSpec}
+  schemaName="ResponseResource"
+  header="Response"
+  includeSections={false}
+/>
+
+{
+  hasWebSocket && (
+    <>
+      <h2 id="websocket-mode">WebSocket Mode</h2>
+
+      {websocketAddedIn && <AddedIn version={websocketAddedIn} />}
+
+      <p>
+        Open a WebSocket connection to <code>/v1/responses</code> and start each
+        turn with a JSON <code>response.create</code> client message. The
+        message uses the normal response creation body, except HTTP transport
+        fields such as <code>stream</code>, <code>stream_options</code>, and
+        <code>background</code> are not sent. Server progress messages use the
+        same streaming event objects as <code>text/event-stream</code>
+        responses, while WebSocket failures use an <code>error</code>
+        envelope.
+      </p>
+
+      <Reference
+        apiSpec={apiSpec}
+        schemaName="WebSocketResponseCreateEvent"
+        header="Client Message"
+        includeSections={false}
+      />
+
+      <Reference
+        apiSpec={apiSpec}
+        schemaName="WebSocketErrorEvent"
+        header="Error Message"
+        includeSections={false}
+      />
+    </>
+  )
+}
+
+{
+  hasCompaction && (
+    <>
+      <h2 id="compaction-endpoint">Compaction Endpoint</h2>
+
+      {compactionAddedIn && <AddedIn version={compactionAddedIn} />}
+
+      <div class="not-prose mt-8 flex flex-row items-center gap-2 rounded-lg border-1 border-slate-300 bg-slate-100 p-2">
+        <span class="rounded border-1 border-blue-400 bg-blue-100 px-2 py-1 text-xs font-bold text-blue-600">
+          POST
+        </span>
+        <span class="font-mono">/v1/responses/compact</span>
+      </div>
+
+      <p>
+        The compaction endpoint returns a compacted conversation state object
+        that can be used to preserve long-running context without asserting
+        provider-specific compression behavior.
+      </p>
+
+      <h3 id="compaction-body">Body</h3>
+
+      <Reference
+        apiSpec={apiSpec}
+        schemaName="CompactResponseMethodPublicBody"
+        header="Body Parameters"
+        includeSections={false}
+      />
+
+      <h3 id="compaction-response">Response</h3>
+
+      <Reference
+        apiSpec={apiSpec}
+        schemaName="CompactResource"
+        header="Response"
+        includeSections={false}
+      />
+    </>
+  )
+}
+
+<h1 id="api-objects">API Objects</h1>
+
+<ReferenceSections apiSpec={apiSpec} schemaNames={apiObjectSchemaNames} />

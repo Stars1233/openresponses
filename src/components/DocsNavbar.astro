@@ -1,4 +1,6 @@
 ---
+import SpecVersionPicker from "./SpecVersionPicker.astro";
+
 type SidebarItem = {
   label: string;
   href: string;
@@ -7,9 +9,16 @@ type SidebarItem = {
 type Props = {
   sidebar?: SidebarItem[];
   currentPath?: string;
+  specVersion?: string | null;
+  versionBasePath?: string | null;
 };
 
-const { sidebar = [], currentPath = "" } = Astro.props as Props;
+const {
+  sidebar = [],
+  currentPath = "",
+  specVersion = null,
+  versionBasePath = null,
+} = Astro.props as Props;
 const getActiveHref = (href: string, path: string) => {
   const hrefPath = href.split("#")[0] || "/";
   return hrefPath === path || (hrefPath !== "/" && path.startsWith(hrefPath));
@@ -22,14 +31,29 @@ const activeItem =
   <div
     class="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6"
   >
-    <div class="flex items-center gap-3">
-      <a href="/">
-        <img src="/svg/openresponses.svg" class="h-5" />
+    <div class="flex items-center gap-2 sm:gap-3">
+      <a href="/" class="block h-5 w-4 shrink-0 overflow-hidden sm:w-auto">
+        <img
+          src="/svg/openresponses.svg"
+          class="h-5 w-auto max-w-none"
+          alt="Open Responses"
+        />
       </a>
+      {
+        specVersion && versionBasePath && (
+          <SpecVersionPicker
+            currentVersion={specVersion}
+            basePath={versionBasePath}
+          />
+        )
+      }
     </div>
     <div class="flex flex-row-reverse items-center gap-3 text-sm lg:flex-row">
       <a
-        class="inline-flex items-center gap-2 rounded-full font-semibold text-slate-600 transition hover:text-slate-900"
+        class:list={[
+          "items-center gap-2 rounded-full font-semibold text-slate-600 transition hover:text-slate-900",
+          specVersion ? "hidden sm:inline-flex" : "inline-flex",
+        ]}
         href="https://github.com/openresponses/openresponses"
         target="_blank"
         rel="noreferrer"

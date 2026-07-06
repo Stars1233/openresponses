@@ -2,6 +2,7 @@ import type { OpenApiDocument, OpenApiSchema } from "./types";
 import type { EnumDescriptions, OpenApiSchemaExt } from "./schema";
 import {
   getDescription,
+  getAddedIn,
   getEnumDescriptions,
   getEnumValues,
   getInlineable,
@@ -28,6 +29,7 @@ export type InlineRow = {
   enumDescriptions: EnumDescriptions;
   literalValue: string | null;
   unionVariants: ParameterUnionVariant[];
+  addedIn: string | null;
 };
 
 export type ParameterUnionVariant = {
@@ -53,6 +55,7 @@ export type ParameterRow = {
   isUnion: boolean;
   unionVariants: ParameterUnionVariant[];
   typeLinkId: string | null;
+  addedIn: string | null;
 };
 
 export type SectionKind = "enum" | "union" | "object";
@@ -65,6 +68,7 @@ export type EnumSection = {
   description: string;
   values: EnumValue[];
   descriptions: EnumDescriptions;
+  addedIn: string | null;
 };
 
 export type ObjectSection = {
@@ -74,6 +78,7 @@ export type ObjectSection = {
   title: string;
   description: string;
   rows: InlineRow[];
+  addedIn: string | null;
 };
 
 export type UnionVariantLink = {
@@ -91,6 +96,7 @@ export type UnionSection = {
   title: string;
   description: string;
   variants: UnionVariantLink[];
+  addedIn: string | null;
 };
 
 export type ReferenceSections = {
@@ -135,6 +141,7 @@ const buildInlineRows = (
       enumDescriptions,
       literalValue,
       unionVariants,
+      addedIn: getAddedIn(doc, prop),
     };
   });
 };
@@ -347,6 +354,7 @@ const buildSectionsFromRefs = (
         description: getDescription(doc, schema),
         values: getEnumValues(doc, schema),
         descriptions: getEnumDescriptions(doc, schema),
+        addedIn: getAddedIn(doc, schema),
       });
       continue;
     }
@@ -359,6 +367,7 @@ const buildSectionsFromRefs = (
         title: name,
         description: getDescription(doc, schema),
         rows: buildInlineRows(doc, schema, sections),
+        addedIn: getAddedIn(doc, schema),
       });
       continue;
     }
@@ -397,6 +406,7 @@ const buildSectionsFromRefs = (
         title: unionTitle,
         description: getDescription(doc, schema),
         variants: variants.sort((a, b) => a.label.localeCompare(b.label)),
+        addedIn: getAddedIn(doc, schema),
       });
     }
   }
@@ -472,6 +482,7 @@ const buildParameterRows = (
       isUnion,
       unionVariants,
       typeLinkId,
+      addedIn: getAddedIn(doc, prop as OpenApiSchemaExt),
     } satisfies ParameterRow;
   });
 };

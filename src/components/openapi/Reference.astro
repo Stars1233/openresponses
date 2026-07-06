@@ -1,21 +1,24 @@
 ---
 import Oas from "oas";
-import apispec from "../../../public/openapi/openapi.json" with { type: "json" };
+import AddedIn from "../AddedIn.astro";
 import EnumValues from "./EnumValues.astro";
 import PropertyTable from "./PropertyTable.astro";
 import TypeBadgeGroup from "./TypeBadgeGroup.astro";
 import UnionVariantBadges from "./UnionVariantBadges.astro";
 import { buildReferenceIndex } from "../../lib/openapi/referenceIndex";
+import { getAddedIn } from "../../lib/openapi/schema";
 import type { OpenApiDocument, OpenApiSchema } from "../../lib/openapi/types";
 import { parseInlineMarkdown } from "../../lib/markdown";
 
 type Props = {
+  apiSpec: OpenApiDocument;
   schemaName?: string;
   header?: string;
   includeSections?: boolean;
 };
 
 const {
+  apiSpec: apispec,
   schemaName: schemaNameProp,
   header = "Body Parameters",
   includeSections = true,
@@ -32,15 +35,24 @@ const resolvedSchemaName = schemaNameProp ?? schemaName;
 const requestSchema = resolvedSchemaName
   ? (apispec.components?.schemas?.[resolvedSchemaName] as OpenApiSchema | null)
   : null;
+if (!requestSchema) {
+  throw new Error(
+    `Missing reference schema: ${resolvedSchemaName ?? "request body"}`,
+  );
+}
 
 const { parameterRows, sections } = buildReferenceIndex(
   apispec as OpenApiDocument,
   requestSchema,
 );
+const addedIn = getAddedIn(apispec as OpenApiDocument, requestSchema);
 ---
 
 <div class="reference-table not-prose">
-  <div class="reference-table__header">{header}</div>
+  <div class="reference-table__header flex items-center justify-between gap-3">
+    <span>{header}</span>
+    {addedIn && <AddedIn version={addedIn} compact />}
+  </div>
   {
     parameterRows.map((row) => (
       <div class="reference-table__row">
@@ -52,6 +64,7 @@ const { parameterRows, sections } = buildReferenceIndex(
               required
             </span>
           )}
+          {row.addedIn && <AddedIn version={row.addedIn} compact />}
         </div>
         {row.description && (
           <div
@@ -88,6 +101,7 @@ const { parameterRows, sections } = buildReferenceIndex(
             >
               {section.name}
             </h3>
+            {section.addedIn && <AddedIn version={section.addedIn} compact />}
             <section
               id={section.id}
               aria-labelledby={`${section.id}-title`}
@@ -130,6 +144,7 @@ const { parameterRows, sections } = buildReferenceIndex(
             >
               {section.name}
             </h3>
+            {section.addedIn && <AddedIn version={section.addedIn} compact />}
             <section
               id={section.id}
               aria-labelledby={`${section.id}-title`}
@@ -169,6 +184,7 @@ const { parameterRows, sections } = buildReferenceIndex(
             >
               {section.name}
             </h3>
+            {section.addedIn && <AddedIn version={section.addedIn} compact />}
             <section
               id={section.id}
               aria-labelledby={`${section.id}-title`}

@@ -1,5 +1,5 @@
 ---
-import apispec from "../../../public/openapi/openapi.json" with { type: "json" };
+import AddedIn from "../AddedIn.astro";
 import EnumValues from "./EnumValues.astro";
 import PropertyTable from "./PropertyTable.astro";
 import UnionVariantBadges from "./UnionVariantBadges.astro";
@@ -8,10 +8,11 @@ import type { OpenApiDocument, OpenApiSchema } from "../../lib/openapi/types";
 import { parseInlineMarkdown } from "../../lib/markdown";
 
 type Props = {
+  apiSpec: OpenApiDocument;
   schemaNames: string[];
 };
 
-const { schemaNames } = Astro.props as Props;
+const { apiSpec: apispec, schemaNames } = Astro.props as Props;
 const schemas = schemaNames
   .map((name) => apispec.components?.schemas?.[name] as OpenApiSchema | null)
   .filter(Boolean);
@@ -32,6 +33,7 @@ const sections = buildReferenceSections(apispec as OpenApiDocument, schemas);
             >
               {section.name}
             </h3>
+            {section.addedIn && <AddedIn version={section.addedIn} compact />}
             <section
               id={section.id}
               aria-labelledby={`${section.id}-title`}
@@ -73,6 +75,7 @@ const sections = buildReferenceSections(apispec as OpenApiDocument, schemas);
               >
                 {section.name}
               </h3>
+              {section.addedIn && <AddedIn version={section.addedIn} compact />}
               <div class="pb-4">
                 {section.description && (
                   <div
@@ -104,6 +107,7 @@ const sections = buildReferenceSections(apispec as OpenApiDocument, schemas);
             >
               {section.name}
             </h3>
+            {section.addedIn && <AddedIn version={section.addedIn} compact />}
             <section
               id={section.id}
               aria-labelledby={`${section.id}-title`}

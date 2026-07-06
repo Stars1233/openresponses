@@ -7,10 +7,18 @@ import Analytics from "@vercel/analytics/astro";
 const { frontmatter } = Astro.props;
 const title = frontmatter?.title ?? "Docs";
 const description = frontmatter?.description ?? "";
+const currentPath = Astro.url.pathname;
+const specVersion = frontmatter?.specVersion ?? null;
+const versionBasePath = frontmatter?.versionBasePath ?? null;
+const normalizedCurrentPath = currentPath.replace(/\/$/, "");
+const isDatedRelease = Boolean(
+  specVersion && normalizedCurrentPath.endsWith(`/${specVersion}`),
+);
+const releaseSuffix = isDatedRelease ? `/${specVersion}` : "";
 const sidebar = [
   { label: "Overview", href: "/" },
-  { label: "Specification", href: "/specification" },
-  { label: "Reference", href: "/reference" },
+  { label: "Specification", href: `/specification${releaseSuffix}` },
+  { label: "Reference", href: `/reference${releaseSuffix}` },
   { label: "Acceptance Tests", href: "/compliance" },
   { label: "Governance", href: "/governance" },
   { label: "Changelog", href: "/changelog" },
@@ -22,7 +30,6 @@ const landingTitle = landingTitleHtml || landingTitleRaw;
 const renderLandingTitleHtml =
   Boolean(landingTitleHtml) ||
   (typeof landingTitleRaw === "string" && landingTitleRaw.includes("<"));
-const currentPath = Astro.url.pathname;
 ---
 
 <html lang="en">
@@ -49,7 +56,12 @@ const currentPath = Astro.url.pathname;
   </head>
   <body class="bg-orange-50 text-slate-900">
     <div class="min-h-screen">
-      <DocsNavbar sidebar={sidebar} currentPath={currentPath} />
+      <DocsNavbar
+        sidebar={sidebar}
+        currentPath={currentPath}
+        specVersion={specVersion}
+        versionBasePath={versionBasePath}
+      />
 
       <main
         class="mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[200px_1fr_220px]"

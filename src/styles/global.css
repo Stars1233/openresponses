@@ -69,6 +69,11 @@ body {
   @apply mt-0! text-5xl tracking-tight lg:mt-16! lg:text-7xl;
 }
 
+.changelog-content > h1 {
+  font-family: "OpenAI Sans", sans-serif;
+  @apply mt-0! text-5xl tracking-tight lg:mt-16! lg:text-7xl;
+}
+
 h1 {
   font-weight: 600;
   letter-spacing: 0.01em;

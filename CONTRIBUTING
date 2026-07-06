@@ -39,6 +39,17 @@ Create a proposal for any change that affects the specification, compatibility, 
    - Test or conformance plan
 2. After initial feedback, submit a PR that includes the spec change and related docs/tests.
 
+The OpenAPI source files under `schema/` are copied from OpenAI's first-party API, so keep those
+files pristine. Put Open Responses metadata, including `x-openresponses-added-in`, in
+`schema/openapi_additive_patches.yaml`, then regenerate the spec. Use the `AddedIn` component for
+matching prose. During development, `bun run spec` refreshes the canonical filtered schema. When
+the release is ready, `bun run spec:release` also writes
+`public/openapi/YYYY-MM-DD/openapi.json`. Dated artifacts are immutable: release generation stops
+if that release date already has a different snapshot.
+
+A release also gets an immutable prose snapshot, generated Specification and Reference routes,
+and an entry in `CHANGELOG.md`.
+
 ### How proposals are decided
 
 We seek consensus. If consensus cannot be reached, the TSC resolves the decision per the

@@ -649,8 +649,8 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         "--patches",
         default=None,
         help=(
-            "Optional path to a JSON/YAML patch file that adds schemas, enum values, or schema list entries "
-            "(oneOf/anyOf/allOf) to the final output."
+            "Optional path to a JSON/YAML patch file that adds or merges document fields, schemas, "
+            "enum values, or schema list entries (oneOf/anyOf/allOf) into the final output."
         ),
     )
     p.add_argument(
@@ -1973,6 +1973,33 @@ def _apply_additive_patches(doc: Json, *, patches_path: Path) -> Json:
     if not isinstance(doc, dict):
         return doc
 
+    document_rules = add_root.get("document_fields", [])
+    if document_rules is None:
+        document_rules = []
+    if not isinstance(document_rules, list):
+        raise RuntimeError("Patches add.document_fields must be a list.")
+    for idx, rule in enumerate(document_rules):
+        if not isinstance(rule, dict):
+            raise RuntimeError("Each document_fields entry must be an object.")
+        pointer = rule.get("path", "")
+        merge_obj = rule.get("merge", {})
+        if not isinstance(pointer, str):
+            raise RuntimeError("document_fields 'path' must be a string if provided.")
+        if not isinstance(merge_obj, dict):
+            raise RuntimeError("document_fields 'merge' must be an object.")
+        target = _json_pointer_get(
+            doc,
+            pointer,
+            context=f"document_fields[{idx}]",
+        )
+        if not isinstance(target, dict):
+            raise RuntimeError("document_fields target must resolve to an object.")
+        merged = _deep_merge(target, merge_obj)
+        if not isinstance(merged, dict):
+            raise RuntimeError("document_fields merge must result in an object.")
+        target.clear()
+        target.update(merged)
+
     components = doc.get("components")
     if components is None:
         components = {}
@@ -2200,7 +2227,9 @@ def main(argv: list[str]) -> int:
     content = json.dumps(out_doc, indent=indent, ensure_ascii=True, sort_keys=False) + ("\n" if indent else "")
 
     if args.output:
-        Path(args.output).write_text(content, encoding="utf-8")
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(content, encoding="utf-8")
     else:
         sys.stdout.write(content)
     return 0
