@@ -14,6 +14,7 @@
 
 ### Endpoints
 - `POST /v1/responses`
+- `POST /v1/responses/compact`
 
 ### Common Parameters
 - `model`
@@ -26,6 +27,10 @@
 - `truncation`
 - `service_tier`
 - `reasoning`
+
+### Streaming Events
+- `response.create`
+- `response.compaction`
 
 ## Documentation
 
