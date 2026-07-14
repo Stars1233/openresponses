@@ -1,0 +1,32 @@
+---
+import ReferencePage from "../../components/openapi/ReferencePage.astro";
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import { findOpenApiDocument } from "../../lib/openapiVersions";
+import {
+  findSpecVersionMetadata,
+  specVersionMetadata,
+} from "../../lib/specVersionMetadata";
+
+export function getStaticPaths() {
+  return specVersionMetadata.map((release) => ({
+    params: { version: release.version },
+    props: { version: release.version },
+  }));
+}
+
+const release = findSpecVersionMetadata(Astro.props.version);
+if (!release) {
+  throw new Error(`Unknown specification version: ${Astro.props.version}`);
+}
+
+const apiSpec = findOpenApiDocument(release.version);
+const frontmatter = {
+  title: `Reference ${release.version}`,
+  specVersion: release.version,
+  versionBasePath: "/reference",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <ReferencePage apiSpec={apiSpec} openApiHref={release.openApiHref} />
+</DocsLayout>

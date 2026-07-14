@@ -1,6 +1,7 @@
 ---
 import EnumValues from "./EnumValues.astro";
 import UnionVariantBadges from "./UnionVariantBadges.astro";
+import AddedIn from "../AddedIn.astro";
 import type { InlineRow } from "../../lib/openapi/referenceIndex";
 import { parseInlineMarkdown } from "../../lib/markdown";
 
@@ -58,6 +59,7 @@ const typeClass = (type: string) => {
                 required
               </span>
             )}
+            {row.addedIn && <AddedIn version={row.addedIn} compact />}
           </div>
           {row.description && (
             <div

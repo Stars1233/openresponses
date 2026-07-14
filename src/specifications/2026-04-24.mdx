@@ -1,11 +1,7 @@
----
-layout: ../layouts/DocsLayout.astro
-title: Specification
----
-
 import CreateResponseParam from '../examples/ResponseParam.json';
 import { Code } from 'astro-expressive-code/components';
 import DocsLightbox from '../components/DocsLightbox.astro';
+import AddedIn from '../components/AddedIn.astro';
 
 
 <h1 class="page-title">Specification</h1>
@@ -95,6 +91,8 @@ data: { "type":"response.output_text.delta","sequence_number":10,"item_id":"msg_
 ```
 
 ## WebSocket Transport
+
+<AddedIn version="2026-04-24" />
 
 Servers MAY expose the Responses API over a persistent WebSocket connection at the same `/v1/responses` resource. A WebSocket connection is a transport mode for the Responses API; it does not define a separate response object model.
 

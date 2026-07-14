@@ -15,6 +15,11 @@ export type OpenApiDocument = {
 };
 
 export type OpenApiPathItem = {
+  "x-openresponses-added-in"?: string;
+  "x-openresponses-websocket"?: {
+    "x-openresponses-added-in"?: string;
+    [key: string]: unknown;
+  };
   get?: OpenApiOperation;
   put?: OpenApiOperation;
   post?: OpenApiOperation;
@@ -27,6 +32,7 @@ export type OpenApiPathItem = {
 };
 
 export type OpenApiOperation = {
+  "x-openresponses-added-in"?: string;
   operationId?: string;
   summary?: string;
   description?: string;
@@ -38,7 +44,7 @@ export type OpenApiOperation = {
 
 export type OpenApiReference = { $ref: string };
 
-export type OpenApiSchema = OpenApiReference & {
+export type OpenApiSchema = {
   // NOTE: In OpenAPI 3.1, schemas are full JSON Schema vocab; we keep this loose.
   $ref?: string;
   title?: string;
@@ -51,6 +57,7 @@ export type OpenApiSchema = OpenApiReference & {
   example?: unknown;
   examples?: unknown[];
   deprecated?: boolean;
+  "x-openresponses-added-in"?: string;
 
   properties?: Record<string, OpenApiSchema>;
   required?: string[];
@@ -76,14 +83,14 @@ export type OpenApiMediaTypeObject = {
   >;
 };
 
-export type OpenApiRequestBody = OpenApiReference & {
+export type OpenApiRequestBody = {
   $ref?: string;
   description?: string;
   required?: boolean;
   content?: Record<string, OpenApiMediaTypeObject>;
 };
 
-export type OpenApiParameter = OpenApiReference & {
+export type OpenApiParameter = {
   $ref?: string;
   name: string;
   in: "query" | "header" | "path" | "cookie";
@@ -93,7 +100,7 @@ export type OpenApiParameter = OpenApiReference & {
   schema?: OpenApiSchema;
 };
 
-export type OpenApiResponse = OpenApiReference & {
+export type OpenApiResponse = {
   $ref?: string;
   description?: string;
   headers?: Record<string, OpenApiParameter | OpenApiReference>;

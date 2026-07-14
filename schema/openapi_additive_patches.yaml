@@ -1,5 +1,16 @@
 version: 1
 add:
+  document_fields:
+    - path: /info
+      merge:
+        title: Open Responses
+        version: "2026-04-24"
+    - path: /paths/~1responses/x-openresponses-websocket
+      merge:
+        x-openresponses-added-in: "2026-04-24"
+    - path: /paths/~1responses~1compact/post
+      merge:
+        x-openresponses-added-in: "2026-04-24"
   schemas:
     InputVideoContent:
       type: object
@@ -247,3 +258,35 @@ add:
           high: "Instruct the model to emit more verbose final responses."
           low: "Instruct the model to emit less verbose final responses."
           medium: "Use the model's default verbosity setting."
+    - schema: AssistantMessageItemParam
+      path: /properties/phase
+      merge:
+        x-openresponses-added-in: "2026-04-24"
+    - schema: Message
+      path: /properties/phase
+      merge:
+        x-openresponses-added-in: "2026-04-24"
+    - schema: WebSocketResponseCreateEvent
+      path: ""
+      merge:
+        x-openresponses-added-in: "2026-04-24"
+    - schema: WebSocketErrorEvent
+      path: ""
+      merge:
+        x-openresponses-added-in: "2026-04-24"
+    - schema: CompactResponseMethodPublicBody
+      path: ""
+      merge:
+        x-openresponses-added-in: "2026-04-24"
+    - schema: CompactResource
+      path: ""
+      merge:
+        x-openresponses-added-in: "2026-04-24"
+    - schema: CompactionSummaryItemParam
+      path: ""
+      merge:
+        x-openresponses-added-in: "2026-04-24"
+    - schema: CompactionBody
+      path: ""
+      merge:
+        x-openresponses-added-in: "2026-04-24"

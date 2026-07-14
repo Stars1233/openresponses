@@ -1,0 +1,19 @@
+---
+import ReferencePage from "../components/openapi/ReferencePage.astro";
+import DocsLayout from "../layouts/DocsLayout.astro";
+import { currentOpenApiDocument } from "../lib/openapiVersions";
+import { currentSpecVersionMetadata } from "../lib/specVersionMetadata";
+
+const frontmatter = {
+  title: "Reference",
+  specVersion: currentSpecVersionMetadata.version,
+  versionBasePath: "/reference",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <ReferencePage
+    apiSpec={currentOpenApiDocument}
+    openApiHref="/openapi/openapi.json"
+  />
+</DocsLayout>

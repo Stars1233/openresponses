@@ -11,7 +11,9 @@ At a high level, the spec centers on:
 
 ## What's in this repo
 
-- Full specification: `public/openapi/openapi.json`
+- Latest OpenAPI specification: `public/openapi/openapi.json`
+- Dated specification releases: `public/openapi/<YYYY-MM-DD>/openapi.json`
+- Specification changelog: `CHANGELOG.md`
 - Website documentation content (source): `src/pages`
 - Compliance tests: `bin/compliance-test.ts`
 

@@ -8,6 +8,7 @@ export type OpenApiSchemaExt = OpenApiSchema & {
   "x-unionTitle"?: string;
   "x-enumDescriptions"?: Record<string, string>;
   "x-openresponses-disallowed"?: boolean;
+  "x-openresponses-added-in"?: string;
 };
 
 export type EnumDescriptions = Record<string, string>;
@@ -39,6 +40,20 @@ export const resolveRef = (
   if (!schema) return null;
   if (!schema.$ref) return schema;
   return getSchemaFromRef(doc, schema.$ref) ?? schema;
+};
+
+export const getAddedIn = (
+  doc: OpenApiDocument,
+  schema?: OpenApiSchemaExt | null,
+): string | null => {
+  if (!schema) return null;
+  const version = schema["x-openresponses-added-in"];
+  if (typeof version === "string") return version;
+  if (schema.$ref) {
+    const resolved = resolveRef(doc, schema);
+    if (resolved && resolved !== schema) return getAddedIn(doc, resolved);
+  }
+  return null;
 };
 
 export const getRefName = (schema?: OpenApiSchemaExt | null) =>

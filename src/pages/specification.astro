@@ -1,0 +1,15 @@
+---
+import DocsLayout from "../layouts/DocsLayout.astro";
+import { currentSpecVersion } from "../lib/specVersions";
+
+const { Content } = currentSpecVersion;
+const frontmatter = {
+  title: "Specification",
+  specVersion: currentSpecVersion.version,
+  versionBasePath: "/specification",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <Content />
+</DocsLayout>
